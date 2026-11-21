@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product — Nargis &amp; Shaz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body data-page="product">
+<div id="site-header"></div>
+<main>
+  <div class="crumbs" id="crumbs"></div>
+  <section class="pdp">
+    <div class="gallery" id="gallery"></div>
+    <div class="info">
+      <span class="eyebrow" id="pTag"></span>
+      <h1 id="pName"></h1>
+      <div class="price" id="pPrice"></div>
+      <p id="pDesc" class="muted" style="max-width:460px"></p>
+      <div class="lab"><span>Colour — <b id="cName" style="font-weight:400"></b></span></div>
+      <div class="swatches" id="swatches"></div>
+      <div id="sizeBlock">
+        <div class="lab"><span>Size</span><a class="ulink" href="#" style="font-size:10px">Size guide</a></div>
+        <div class="sizes" id="sizes"></div>
+      </div>
+      <div class="msg" id="msg"></div>
+      <button class="btn block" id="add">Add to bag</button>
+      <p class="muted" style="font-size:12.5px;margin-top:14px;text-align:center">Complimentary shipping over $250 · Free returns within 30 days</p>
+      <div class="acc">
+        <details open><summary>Details</summary><div class="in" id="accDetails"></div></details>
+        <details><summary>Fabric &amp; care</summary><div class="in" id="accFabric"></div></details>
+        <details><summary>Delivery &amp; returns</summary><div class="in"><p>Standard delivery in 3–5 working days. Express available at checkout. Returns are free within 30 days of delivery.</p></div></details>
+      </div>
+    </div>
+  </section>
+  <section class="section" style="padding-top:30px">
+    <div class="wrap sec-head" data-r><h2 class="display h2">Complete the <em>look</em></h2></div>
+    <div class="rail" id="related"></div>
+  </section>
+  <div class="sticky-buy"><div><div style="font-size:11px;letter-spacing:.2em;text-transform:uppercase">Add to bag</div><div id="stickyPrice"></div></div><button class="btn" id="stickyAdd">Select size</button></div>
+</main>
+<div id="site-footer"></div>
+<script src="js/art.js"></script>
+<script src="js/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

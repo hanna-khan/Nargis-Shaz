@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+/* ───────────── Design tokens — Nargis & Shaz ───────────── */
+@theme {
+  --color-ivory: #f5f0e8;
+  --color-paper: #faf7f1;
+  --color-beige: #e7dccb;
+  --color-camel: #c7b49d;
+  --color-mocha: #9a8069;
+  --color-cocoa: #655044;
+  --color-charcoal: #292722;
+  --color-clay: #a0614a;
+  --color-blush: #ead6c9;
+  --color-sage: #8b8a68;
+  --color-line: rgb(41 39 34 / 0.13);
+  --color-success: #4f6b4a;
+  --color-warning: #a8742a;
+  --color-danger: #9c3b2f;
+
+  --font-serif: "Cormorant Garamond", "Cormorant", Georgia, serif;
+  --font-sans: "Jost", "Helvetica Neue", Arial, sans-serif;
+
+  --text-eyebrow: 0.6875rem;
+  --tracking-eyebrow: 0.26em;
+  --tracking-nav: 0.2em;
+
+  --ease-editorial: cubic-bezier(0.22, 0.8, 0.24, 1);
+  --radius-arch: 999px 999px 0 0;
+
+  --animate-drip: drip 2.4s var(--ease-editorial) infinite;
+  @keyframes drip {
+    0% { transform: scaleY(0); transform-origin: top; }
+    50% { transform: scaleY(1); transform-origin: top; }
+    51% { transform-origin: bottom; }
+    100% { transform: scaleY(0); transform-origin: bottom; }
+  }
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    @apply bg-ivory text-charcoal font-sans antialiased;
+    font-weight: 300;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  ::selection { background: var(--color-blush); }
+  :focus-visible { outline: 1px solid var(--color-charcoal); outline-offset: 3px; }
+  h1, h2, h3, h4 { font-weight: 300; }
+  button { cursor: pointer; }
+}
+
+@layer components {
+  .eyebrow { font-size: var(--text-eyebrow); letter-spacing: var(--tracking-eyebrow); text-transform: uppercase; font-weight: 400; }
+  .display { font-family: var(--font-serif); font-weight: 300; line-height: 1.02; letter-spacing: -0.01em; }
+  .display em, .serif-em { font-style: italic; font-weight: 300; }
+  .ulink {
+    font-size: var(--text-eyebrow); letter-spacing: 0.22em; text-transform: uppercase; font-weight: 400; padding-bottom: 4px;
+    background: linear-gradient(currentColor, currentColor) left bottom / 100% 1px no-repeat;
+    transition: background-size 0.5s var(--ease-editorial);
+  }
+  .ulink:hover { background-size: 0 1px; background-position: right bottom; }
+  .arch { border-radius: var(--radius-arch); }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .art > svg, .art > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .zoom-on-hover .art > svg, .zoom-on-hover .art > img { transition: transform 1.6s var(--ease-editorial); }
+  .zoom-on-hover:hover .art > svg, .zoom-on-hover:hover .art > img { transform: scale(1.045); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
+}
