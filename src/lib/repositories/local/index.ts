@@ -1,9 +1,10 @@
 import "server-only";
 import { categoryData, collectionData, productData } from "@/data/catalog";
+import { campaign } from "@/data/photography";
 import { countryData, currencyData, marketData, shippingData, taxData } from "@/data/markets";
 import { auditData, customerData, discountData, homepageData, orderData, salesSeries, settingsData, staffData } from "@/data/operations";
 import { applyCatalogFilter } from "@/lib/services/catalog-filter";
-import type { MediaAsset } from "@/types";
+import type { MediaAsset, ProductImage } from "@/types";
 import type { Repositories } from "../types";
 
 /** Deep copy so callers can never mutate the source data. */
@@ -30,6 +31,9 @@ export const localRepositories: Repositories = {
     async listCollections(opts) {
       return clone(collectionData.filter((c) => opts?.includeDrafts || c.status === "published").sort((a, b) => a.sortOrder - b.sortOrder));
     },
+    async getCategoryBySlug(slug) {
+      return clone(categoryData.find((c) => c.slug === slug) ?? null);
+    },
     async getCollectionBySlug(slug) {
       return clone(collectionData.find((c) => c.slug === slug) ?? null);
     },
@@ -44,14 +48,16 @@ export const localRepositories: Repositories = {
   content: {
     async getHomepage() { return clone(homepageData); },
     async listMedia() {
-      const assets: MediaAsset[] = [
-        ...productData.flatMap((p) => p.colours.slice(0, 2).flatMap((c) => c.images.slice(0, 2).map((img, i) => ({
-          ...img, filename: `${p.slug}-${c.name.toLowerCase().replace(/\s/g, "-")}-${i + 1}.jpg`, folder: "products" as const,
-          sizeKb: 380 + ((p.slug.length * 37 + i * 91) % 520), uploadedAt: p.createdAt,
-        })))),
-        ...collectionData.map((c) => ({ ...c.hero, filename: `campaign-${c.slug}.jpg`, folder: "campaigns" as const, sizeKb: 1240 + c.sortOrder * 87, uploadedAt: "2026-10-01T09:00:00.000Z" })),
-      ];
-      return clone(assets);
+      const seen = new Map<string, MediaAsset>();
+      const add = (img: ProductImage, folder: MediaAsset["folder"], productId?: string) => {
+        if (!img.src || seen.has(img.id)) return;
+        seen.set(img.id, { ...img, filename: img.src.split("/").pop()!.split("?")[0], folder, productId, sizeKb: 0, uploadedAt: "2026-11-01T09:00:00.000Z" });
+      };
+      productData.forEach((p) => p.colours.forEach((c) => c.images.forEach((img) => add(img, "products", p.id))));
+      Object.values(campaign).forEach((img) => add(img, "campaigns"));
+      collectionData.forEach((c) => add(c.hero, "editorial"));
+      categoryData.forEach((c) => c.image && add(c.image, "editorial"));
+      return clone([...seen.values()]);
     },
   },
   operations: {

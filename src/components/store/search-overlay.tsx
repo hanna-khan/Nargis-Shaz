@@ -32,7 +32,7 @@ export function SearchOverlay({ open, onClose, index }: { open: boolean; onClose
       {open && (
         <motion.div
           role="dialog" aria-modal="true" aria-label="Search"
-          className="fixed inset-0 z-[110] overflow-y-auto bg-paper px-[clamp(18px,3.2vw,48px)] py-10"
+          className="fixed inset-0 z-[110] overflow-y-auto bg-offwhite px-[clamp(18px,3.4vw,56px)] py-8"
           initial={{ y: "-100%" }} animate={{ y: 0 }} exit={{ y: "-100%" }} transition={{ duration: 0.7, ease: [0.22, 0.8, 0.24, 1] }}
         >
           <div className="mx-auto max-w-[1100px]">
@@ -43,8 +43,8 @@ export function SearchOverlay({ open, onClose, index }: { open: boolean; onClose
             <form onSubmit={(e) => { e.preventDefault(); router.push(`/search?q=${encodeURIComponent(q)}`); onClose(); }}>
               <input
                 ref={input} value={q} onChange={(e) => setQ(e.target.value)} type="search" aria-label="Search the collection"
-                placeholder="Dresses, cashmere, festive…"
-                className="w-full border-b border-charcoal bg-transparent py-3 font-serif text-[clamp(30px,5vw,60px)] font-light outline-none placeholder:text-charcoal/30"
+                placeholder="Satin, blazers, lehengas…"
+                className="w-full border-b border-chocolate bg-transparent py-3 font-serif text-[clamp(30px,5vw,60px)] outline-none placeholder:text-taupe/45"
               />
             </form>
             <p className="eyebrow mt-10 mb-6 text-charcoal/55">{q ? `${results.length} result${results.length === 1 ? "" : "s"}` : "Popular now"}</p>
@@ -52,14 +52,14 @@ export function SearchOverlay({ open, onClose, index }: { open: boolean; onClose
               {results.map((r) => (
                 <li key={r.id}>
                   <Link href={r.href} onClick={onClose} className="zoom-on-hover block">
-                    <EditorialImage image={r.image} className="aspect-[4/5]" sizes="25vw" />
-                    <p className="mt-3 font-serif text-[19px] leading-tight">{r.name}</p>
+                    <EditorialImage image={r.image} className="aspect-[3/4]" sizes="(max-width:768px) 50vw, 25vw" />
+                    <p className="label mt-3 text-[12.5px]">{r.name}</p>
                     <Price prices={r.prices} className="text-[13px]" />
                   </Link>
                 </li>
               ))}
             </ul>
-            {q && results.length === 0 && <p className="text-charcoal/60">Nothing found for “{q}”. Try “dress”, “silk” or “festive”.</p>}
+            {q && results.length === 0 && <p className="text-taupe">Nothing found for “{q}”. Try “satin”, “linen” or “festive”.</p>}
           </div>
         </motion.div>
       )}

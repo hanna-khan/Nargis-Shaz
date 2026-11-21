@@ -1,95 +1,60 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { EditorialImage } from "@/components/media/editorial-image";
-import { ButtonLink } from "@/components/ui/button";
-import { Parallax, Tilt } from "@/components/ui/parallax";
 import { Reveal, Stagger, StaggerItem } from "@/components/ui/reveal";
-import { Container, Display, Emph, Eyebrow } from "@/components/ui/typography";
+import { Emph } from "@/components/ui/typography";
 import { cn } from "@/lib/utils";
+import { ProductCard } from "../product/product-card";
+import type { CardProduct } from "../product/card-data";
 import { RailControls } from "./rail-controls";
-import type { Collection, ProductImage } from "@/types";
+import { Drift, HorizontalSequence, ScrollText } from "./scroll-effects";
+import type { HomepageContent, ProductImage } from "@/types";
 
-export function CategoryTiles({ tiles }: { tiles: { label: string; href: string; image: ProductImage }[] }) {
+function SectionHead({ eyebrow, title, link, id, children, align = "split" }: { eyebrow: string; title: string; link?: { label: string; href: string }; id: string; children?: ReactNode; align?: "split" | "center" }) {
   return (
-    <section aria-label="Shop by category">
-      <Stagger className="grid grid-cols-5 max-lg:grid-cols-3 max-md:grid-cols-2" gap={0.08}>
-        {tiles.map((t) => (
-          <StaggerItem key={t.label} variant="curtain">
-            <Link href={t.href} className="zoom-on-hover group relative block aspect-[3/4.1] overflow-hidden max-md:aspect-[3/4.4]">
-              <EditorialImage image={t.image} className="absolute inset-0" sizes="(max-width:768px) 50vw, 20vw" />
-              <span className="absolute inset-0 z-10 bg-gradient-to-b from-transparent from-55% to-charcoal/30" />
-              <span className="absolute inset-0 z-10 grid place-items-center font-serif text-[clamp(17px,1.8vw,26px)] tracking-[0.2em] text-white uppercase transition-[letter-spacing] duration-700 [text-shadow:0_2px_24px_rgba(0,0,0,.35)] group-hover:tracking-[0.3em]">{t.label}</span>
-            </Link>
-          </StaggerItem>
-        ))}
-      </Stagger>
-    </section>
-  );
-}
-
-export function Statement({ eyebrow, text, link }: { eyebrow: string; text: string; link: { label: string; href: string } }) {
-  return (
-    <Container as="section" className="py-[clamp(80px,11vw,160px)]">
-      <Reveal className="mx-auto max-w-[1040px] text-center">
-        <Eyebrow>{eyebrow}</Eyebrow>
-        <p className="display my-7 text-[clamp(32px,4.6vw,68px)]"><Emph text={text} emClassName="text-clay" /></p>
-        <Link href={link.href} className="ulink">{link.label}</Link>
+    <div className={cn("gutter mb-[clamp(28px,3.4vw,48px)]", align === "split" ? "flex items-end justify-between gap-6" : "text-center")}>
+      <Reveal>
+        <p className="eyebrow text-bronze">{eyebrow}</p>
+        <h2 id={id} className="display mt-3 text-[clamp(34px,4.2vw,60px)]"><Emph text={title} /></h2>
       </Reveal>
-    </Container>
-  );
-}
-
-export function ProductRail({ id, eyebrow, title, link, children }: { id: string; eyebrow: string; title: string; link: { label: string; href: string }; children: ReactNode }) {
-  return (
-    <section className="pb-[clamp(70px,9vw,130px)]" aria-labelledby={`${id}-title`}>
-      <Container className="mb-10 flex items-end justify-between gap-6">
-        <Reveal>
-          <Eyebrow>{eyebrow}</Eyebrow>
-          <Display as="h2" size="xl" text={title} className="mt-3" />
-        </Reveal>
-        <div className="flex items-center gap-7">
-          <Link href={link.href} className="ulink max-sm:hidden">{link.label}</Link>
-          <RailControls target={id} />
+      {(link || children) && (
+        <div className="flex shrink-0 items-center gap-7">
+          {link && <Link href={link.href} className="ulink max-sm:hidden">{link.label}</Link>}
+          {children}
         </div>
-      </Container>
-      <ul id={id} className="no-scrollbar flex snap-x snap-mandatory scroll-px-[clamp(18px,3.2vw,48px)] gap-[clamp(14px,1.6vw,26px)] overflow-x-auto px-[clamp(18px,3.2vw,48px)] pb-4 [&>li]:w-[clamp(240px,24vw,360px)] [&>li]:shrink-0 [&>li]:snap-start">
-        {children}
+      )}
+    </div>
+  );
+}
+
+/* B. New arrivals — premium grid */
+export function NewArrivals({ content, products }: { content: HomepageContent["newArrivals"]; products: CardProduct[] }) {
+  return (
+    <section className="pt-[clamp(72px,9vw,140px)] pb-[clamp(56px,7vw,110px)]" aria-labelledby="new-title">
+      <SectionHead id="new-title" eyebrow={content.eyebrow} title={content.title} link={{ label: "Discover all", href: "/new-arrivals" }} />
+      <ul className="gutter grid grid-cols-2 gap-x-[clamp(8px,1.4vw,24px)] gap-y-12 max-md:gap-x-1.5 max-md:px-1.5 lg:grid-cols-4">
+        {products.map((p) => <li key={p.id}><ProductCard product={p} sizes="(max-width:1024px) 50vw, 25vw" /></li>)}
       </ul>
+      <div className="mt-12 text-center sm:hidden"><Link href="/new-arrivals" className="ulink">Discover all new arrivals</Link></div>
     </section>
   );
 }
 
-export function SplitFeature({ collection, reverse, tint, cta }: { collection: Collection; reverse?: boolean; tint?: boolean; cta: string }) {
-  const href = collection.occasionId ? `/${collection.occasionId}` : `/collections/${collection.slug}`;
+/* C. Shop by collection / category — editorial, staggered */
+export function CategoryCards({ cards }: { cards: { title: string; href: string; image: ProductImage | null }[] }) {
   return (
-    <section className={cn("grid min-h-[92vh] md:grid-cols-2", tint && "bg-beige/55")} aria-labelledby={`sf-${collection.id}`}>
-      <Parallax className={cn("max-md:aspect-[4/5]", reverse && "md:order-2")} strength={50}>
-        <EditorialImage image={collection.hero} className="h-full w-full" sizes="(max-width:768px) 100vw, 50vw" />
-      </Parallax>
-      <Reveal className="flex flex-col justify-center p-[clamp(40px,8vw,120px)]">
-        <Eyebrow>{collection.eyebrow}</Eyebrow>
-        <Display as="h2" size="xl" text={collection.headline} className="mt-6 mb-7" />
-        <p className="mb-10 max-w-[430px] text-charcoal/75" id={`sf-${collection.id}`}>{collection.description}</p>
-        <div><ButtonLink href={href} variant={reverse ? "outline" : "solid"}>{cta}</ButtonLink></div>
-      </Reveal>
-    </section>
-  );
-}
-
-export function OccasionArches({ items }: { items: Collection[] }) {
-  return (
-    <section className="py-[clamp(80px,10vw,150px)]" aria-labelledby="occ-title">
-      <Reveal className="mb-14 text-center">
-        <Eyebrow>Dress for the day</Eyebrow>
-        <Display as="h2" size="xl" text="Every *occasion*, considered" className="mt-3" />
-      </Reveal>
-      <Stagger className="grid grid-cols-3 gap-[clamp(14px,2vw,30px)] px-[clamp(18px,3.2vw,48px)] max-md:grid-cols-2" gap={0.14}>
-        {items.map((c, i) => (
-          <StaggerItem key={c.id} className={cn(i === 1 && "md:mt-16", i === 2 && "max-md:col-span-2")}>
-            <Link href={`/${c.occasionId}`} className="zoom-on-hover group block">
-              <EditorialImage image={c.hero} className={cn("arch aspect-[3/4.4]", i === 2 && "max-md:aspect-[4/3]")} sizes="(max-width:768px) 50vw, 33vw" />
-              <h3 className="mt-5 font-serif text-[clamp(28px,3vw,44px)] leading-tight">{c.name}</h3>
-              <p className="mt-1 max-w-[320px] text-[13.5px] text-charcoal/60">{c.description.split(".")[0]}.</p>
+    <section className="pb-[clamp(72px,9vw,140px)]" aria-labelledby="cat-title">
+      <SectionHead id="cat-title" eyebrow="Dress for the day" title="Shop by *occasion*" align="center" />
+      <Stagger className="gutter grid grid-cols-2 gap-[clamp(8px,1.4vw,24px)] max-md:gap-1.5 max-md:px-1.5 lg:grid-cols-4" gap={0.12}>
+        {cards.map((c, i) => (
+          <StaggerItem key={c.href} className={cn(i % 2 === 1 && "lg:mt-20")}>
+            <Link href={c.href} className="group relative block aspect-[3/4.3] overflow-hidden">
+              <EditorialImage image={c.image} className="absolute inset-0" imgClassName="transition-transform duration-[1.8s] ease-[var(--ease-editorial)] group-hover:scale-[1.045]" sizes="(max-width:1024px) 50vw, 25vw" position="center 25%" />
+              <span className="absolute inset-0 bg-gradient-to-t from-chocolate/60 via-transparent to-transparent" />
+              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-[clamp(14px,2vw,26px)] text-offwhite">
+                <span className="font-serif text-[clamp(20px,2.2vw,32px)] leading-tight">{c.title}</span>
+                <span aria-hidden className="mb-1.5 hidden h-px w-8 bg-current transition-all duration-500 group-hover:w-14 sm:block" />
+              </span>
             </Link>
           </StaggerItem>
         ))}
@@ -98,47 +63,143 @@ export function OccasionArches({ items }: { items: Collection[] }) {
   );
 }
 
-export function StoryBand({ eyebrow, headline, body, image }: { eyebrow: string; headline: string; body: string; image: ProductImage }) {
+/* D. Featured campaign — layered composition */
+export function Campaign({ content, images }: { content: HomepageContent["campaign"]; images: (ProductImage | null)[] }) {
+  const [main, second, third] = images;
   return (
-    <section className="bg-cocoa text-ivory" aria-labelledby="story-band">
-      <div className="grid items-center gap-[clamp(30px,6vw,110px)] px-[clamp(18px,3.2vw,48px)] py-[clamp(80px,11vw,170px)] md:grid-cols-[5fr_6fr]">
-        <Reveal>
-          <Eyebrow className="opacity-70">{eyebrow}</Eyebrow>
-          <h2 id="story-band" className="display mt-5 text-[clamp(34px,4.4vw,66px)]"><Emph text={headline} emClassName="text-camel" /></h2>
-          <p className="mt-6 mb-9 max-w-[460px] opacity-85">{body}</p>
-          <ButtonLink href="/our-story" variant="light">Discover the house</ButtonLink>
-          <dl className="mt-14 grid grid-cols-3 gap-5 border-t border-ivory/20 pt-7">
-            {[["12", "Partner ateliers"], ["78%", "Natural fibres"], ["30", "Day returns"]].map(([n, l]) => (
-              <div key={l}><dt className="sr-only">{l}</dt><dd className="font-serif text-[44px] leading-none font-light">{n}</dd><dd className="mt-2 text-[10.5px] tracking-[0.22em] uppercase opacity-70">{l}</dd></div>
-            ))}
-          </dl>
+    <section className="bg-linen py-[clamp(72px,9vw,140px)]" aria-labelledby="campaign-title">
+      <div className="gutter grid items-center gap-[clamp(28px,4vw,72px)] lg:grid-cols-12">
+        <Reveal variant="curtain" className="lg:col-span-8">
+          <Drift className="aspect-[3/2]" amount={40}>
+            <EditorialImage image={main} className="h-full w-full" sizes="(max-width:1024px) 100vw, 66vw" />
+          </Drift>
         </Reveal>
-        <Tilt><EditorialImage image={image} className="arch aspect-[4/5]" sizes="(max-width:768px) 100vw, 50vw" /></Tilt>
+        <div className="lg:col-span-4">
+          <Reveal>
+            <p className="eyebrow text-bronze">{content.eyebrow}</p>
+            <h2 id="campaign-title" className="display mt-4 text-[clamp(34px,3.8vw,58px)]"><Emph text={content.headline} /></h2>
+            <p className="mt-5 max-w-[380px] text-taupe">{content.body}</p>
+            <Link href={content.cta.href} className="mt-8 inline-flex min-h-12 items-center bg-chocolate px-8 text-[11px] tracking-[0.24em] text-offwhite uppercase transition-colors duration-500 hover:bg-espresso">{content.cta.label}</Link>
+          </Reveal>
+          <div className="mt-12 grid grid-cols-2 gap-4">
+            <Reveal variant="curtain" delay={0.1}><EditorialImage image={second} className="aspect-[3/4]" sizes="(max-width:1024px) 50vw, 16vw" /></Reveal>
+            <Reveal variant="curtain" delay={0.25} className="mt-10"><EditorialImage image={third} className="aspect-[3/4]" sizes="(max-width:1024px) 50vw, 16vw" /></Reveal>
+          </div>
+        </div>
       </div>
     </section>
   );
 }
 
-export function Quote({ text, attribution }: { text: string; attribution: string }) {
+/* E. Bestsellers — data-driven rail */
+export function Bestsellers({ content, products }: { content: HomepageContent["bestsellers"]; products: CardProduct[] }) {
   return (
-    <section className="bg-blush px-[clamp(18px,3.2vw,48px)] py-[clamp(70px,9vw,140px)] text-center">
-      <Reveal>
-        <blockquote className="mx-auto mb-7 max-w-[960px] font-serif text-[clamp(28px,4vw,56px)] leading-[1.15] font-light italic">“{text}”</blockquote>
-        <p className="eyebrow">{attribution}</p>
-      </Reveal>
+    <section className="py-[clamp(72px,9vw,140px)]" aria-labelledby="best-title">
+      <SectionHead id="best-title" eyebrow={content.eyebrow} title={content.title} link={{ label: "Shop bestsellers", href: "/shop?sort=bestselling" }}>
+        <RailControls target="bestsellers-rail" />
+      </SectionHead>
+      <ol id="bestsellers-rail" className="no-scrollbar flex snap-x snap-mandatory scroll-px-[clamp(18px,3.4vw,56px)] gap-[clamp(8px,1.4vw,24px)] overflow-x-auto px-[clamp(18px,3.4vw,56px)] pb-2">
+        {products.map((p, i) => (
+          <li key={p.id} className="relative w-[clamp(240px,27vw,400px)] shrink-0 snap-start">
+            <span className="pointer-events-none absolute -top-1 left-0 z-10 -translate-y-full font-serif text-[13px] text-bronze">{String(i + 1).padStart(2, "0")}</span>
+            <ProductCard product={p} sizes="(max-width:768px) 70vw, 27vw" />
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
 
-export function Services({ items }: { items: { title: string; text: string }[] }) {
+/* G. Editorial composition — varied proportions, parallax, scroll-written text */
+export function ArtOfDressing({ content, statement, images }: { content: HomepageContent["editorial"]; statement: string; images: (ProductImage | null)[] }) {
+  const [tall, square, wide, small] = images;
   return (
-    <section aria-label="Client services" className="grid grid-cols-4 border-y border-line max-md:grid-cols-2">
-      {items.map((s) => (
-        <div key={s.title} className="border-line px-6 py-9 text-center not-last:border-r max-md:nth-2:border-r-0 max-md:nth-[-n+2]:border-b">
-          <h3 className="mb-1.5 text-[11px] font-normal tracking-[0.22em] uppercase">{s.title}</h3>
-          <p className="text-[13px] text-charcoal/60">{s.text}</p>
+    <section className="bg-chocolate py-[clamp(80px,10vw,160px)] text-offwhite" aria-labelledby="art-title">
+      <div className="gutter">
+        <ScrollText text={statement} className="display mx-auto max-w-[1100px] text-center text-[clamp(28px,3.6vw,54px)] leading-[1.18]" />
+      </div>
+      <div className="gutter mt-[clamp(64px,8vw,128px)] grid grid-cols-12 gap-[clamp(10px,1.6vw,28px)]">
+        <Reveal variant="curtain" className="col-span-7 md:col-span-5"><Drift className="aspect-[3/4.4]" amount={50}><EditorialImage image={tall} className="h-full w-full" sizes="(max-width:768px) 58vw, 42vw" /></Drift></Reveal>
+        <div className="col-span-5 flex flex-col justify-end gap-[clamp(10px,1.6vw,28px)] md:col-span-3">
+          <Reveal variant="curtain" delay={0.1}><EditorialImage image={square} className="aspect-square" sizes="(max-width:768px) 40vw, 25vw" /></Reveal>
+          <Reveal className="hidden md:block" delay={0.2}>
+            <p className="eyebrow text-bronze-light">{content.eyebrow}</p>
+            <h2 id="art-title" className="display mt-3 text-[clamp(30px,2.6vw,42px)]"><Emph text={content.headline} /></h2>
+          </Reveal>
         </div>
+        <div className="col-span-12 flex flex-col gap-[clamp(10px,1.6vw,28px)] md:col-span-4 md:pt-[18%]">
+          <Reveal variant="curtain" delay={0.15}><Drift className="aspect-[4/3]" amount={30}><EditorialImage image={wide} className="h-full w-full" sizes="(max-width:768px) 100vw, 33vw" position="center 35%" /></Drift></Reveal>
+          <Reveal className="md:hidden"><p className="eyebrow text-bronze-light">{content.eyebrow}</p><h2 className="display mt-3 text-[32px]"><Emph text={content.headline} /></h2></Reveal>
+          <Reveal delay={0.25}>
+            <p className="max-w-[380px] text-offwhite/75">{content.body}</p>
+            <Link href={content.cta.href} className="ulink mt-6 inline-block">{content.cta.label}</Link>
+          </Reveal>
+          <Reveal variant="curtain" delay={0.3} className="ml-auto w-[62%]"><EditorialImage image={small} className="aspect-[3/4]" sizes="(max-width:768px) 60vw, 20vw" /></Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* H. A closer look at the details */
+export function Details({ content, images }: { content: HomepageContent["details"]; images: (ProductImage | null)[] }) {
+  return (
+    <section className="py-[clamp(72px,9vw,140px)]" aria-labelledby="details-title">
+      <SectionHead id="details-title" eyebrow={content.eyebrow} title={content.headline} align="center" />
+      <Stagger className="gutter grid gap-[clamp(20px,2.4vw,40px)] md:grid-cols-3" gap={0.15}>
+        {content.items.map((it, i) => (
+          <StaggerItem key={it.title}>
+            <figure>
+              <div className="relative aspect-[4/5] overflow-hidden"><EditorialImage image={images[i]} className="absolute inset-0" sizes="(max-width:768px) 100vw, 33vw" /></div>
+              <figcaption className="mt-5">
+                <p className="font-serif text-[22px]">{it.title}</p>
+                <p className="mt-1.5 max-w-[340px] text-[14px] text-taupe">{it.body}</p>
+              </figcaption>
+            </figure>
+          </StaggerItem>
+        ))}
+      </Stagger>
+    </section>
+  );
+}
+
+/* I. Discover our collections — pinned horizontal sequence */
+export function CollectionsSequence({ items }: { items: { title: string; eyebrow: string; href: string; image: ProductImage; blurb: string }[] }) {
+  return (
+    <HorizontalSequence intro={<Reveal><p className="eyebrow text-bronze">The Nargis &amp; Shaz edit</p><h2 className="display mt-3 text-[clamp(34px,4.2vw,60px)]"><Emph text="Discover our *collections*" /></h2></Reveal>}>
+      {items.map((c, i) => (
+        <Link key={c.href} href={c.href} className={cn("group block shrink-0 snap-start", i % 2 ? "w-[min(70vw,360px)] lg:mt-16 lg:w-[34vh]" : "w-[min(78vw,440px)] lg:w-[42vh]")}>
+          <div className={cn("relative overflow-hidden", i % 2 ? "aspect-[3/4]" : "aspect-[4/5]")}>
+            <EditorialImage image={c.image} className="absolute inset-0" imgClassName="transition-transform duration-[1.8s] ease-[var(--ease-editorial)] group-hover:scale-[1.04]" sizes="(max-width:768px) 78vw, 520px" position="center 30%" />
+          </div>
+          <div className="mt-4 flex items-baseline justify-between gap-4">
+            <div><p className="eyebrow text-taupe">{c.eyebrow}</p><p className="mt-1 font-serif text-[clamp(22px,2vw,30px)]">{c.title}</p></div>
+            <span className="ulink shrink-0">Discover</span>
+          </div>
+          <p className="mt-2 max-w-[400px] text-[13.5px] text-taupe">{c.blurb}</p>
+        </Link>
       ))}
+    </HorizontalSequence>
+  );
+}
+
+/* F. Brand story */
+export function StoryBand({ content, image, quote }: { content: HomepageContent["story"]; image: ProductImage | null; quote: HomepageContent["quote"] }) {
+  return (
+    <section className="grid bg-espresso text-offwhite md:grid-cols-2" aria-labelledby="story-title">
+      <Drift className="min-h-[70vh] max-md:aspect-[4/5] max-md:min-h-0" amount={50}><EditorialImage image={image} className="h-full w-full" sizes="(max-width:768px) 100vw, 50vw" /></Drift>
+      <div className="flex flex-col justify-center px-[clamp(24px,7vw,120px)] py-[clamp(64px,8vw,120px)]">
+        <Reveal>
+          <p className="eyebrow text-bronze-light">{content.eyebrow}</p>
+          <h2 id="story-title" className="display mt-5 text-[clamp(34px,3.8vw,58px)]"><Emph text={content.headline} /></h2>
+          <p className="mt-6 max-w-[460px] text-offwhite/75">{content.body}</p>
+          <Link href="/our-story" className="mt-9 inline-flex min-h-12 items-center border border-offwhite/70 px-8 text-[11px] tracking-[0.24em] uppercase transition-colors duration-500 hover:bg-offwhite hover:text-chocolate">Discover the house</Link>
+          <blockquote className="mt-14 border-t border-offwhite/15 pt-8">
+            <p className="font-serif text-[clamp(20px,1.8vw,26px)] leading-snug italic">“{quote.text}”</p>
+            <footer className="eyebrow mt-4 text-offwhite/60">— {quote.attribution}</footer>
+          </blockquote>
+        </Reveal>
+      </div>
     </section>
   );
 }

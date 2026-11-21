@@ -1,107 +1,157 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { useState, type ReactNode } from "react";
-import { EditorialImage } from "@/components/media/editorial-image";
-import { Button } from "@/components/ui/button";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import imageLoader from "@/lib/media/image-loader";
+import { QuantityStepper } from "../cart-lines";
 import { Price, useShop } from "../shop-context";
+import { ProductGallery } from "./product-gallery";
+import { SizeGuideButton } from "./size-guide";
 import { WishButton } from "./wish-button";
 import type { Product } from "@/types";
 
 const ease = [0.22, 0.8, 0.24, 1] as const;
 
-/** Gallery + variant selection + add to bag. Server passes product data and the details accordion. */
+/** Gallery + purchase panel. Colour changes swap images and variants; size + stock are validated. */
 export function ProductPurchase({ product: p, categoryName, children }: { product: Product; categoryName: string; children: ReactNode }) {
-  const { addToCart, setCartOpen, config, market } = useShop();
+  const { addToCart, setCartOpen, config, market, trackView } = useShop();
   const [colourIdx, setColourIdx] = useState(0);
   const [size, setSize] = useState<string | null>(p.sizes.length === 1 ? p.sizes[0] : null);
+  const [qty, setQty] = useState(1);
   const [error, setError] = useState("");
+  const [added, setAdded] = useState(false);
+  const [showBar, setShowBar] = useState(false);
+  const buyRef = useRef<HTMLDivElement>(null);
   const colour = p.colours[colourIdx];
   const stockFor = (s: string) => p.variants.find((v) => v.colourId === colour.id && v.size === s)?.stock ?? 0;
   const variant = size ? p.variants.find((v) => v.colourId === colour.id && v.size === size) : undefined;
-  const fastest = config.shipping.filter((s) => s.marketId === market.id).sort((a, b) => a.estimatedDays[0] - b.estimatedDays[0])[0];
+  const madeToOrder = p.categoryId === "cat-festive";
+  const fastest = config.shipping.filter((s) => s.marketId === market.id && s.active).sort((a, b) => a.estimatedDays[0] - b.estimatedDays[0])[0];
+  const anyStock = p.variants.some((v) => v.colourId === colour.id && v.stock > 0);
+
+  useEffect(() => { trackView({ productId: p.id, slug: p.slug, name: p.name, subtitle: p.subtitle, image: p.colours[0].images[0], prices: p.prices }); }, [p.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const el = buyRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setShowBar(!e.isIntersecting && e.boundingClientRect.top < 0), { threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   const add = () => {
-    if (!variant) { setError("Please select a size."); document.getElementById("size-picker")?.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
-    if (variant.stock < 1) { setError("This size is sold out in this colour."); return; }
-    addToCart({ productId: p.id, variantId: variant.id, slug: p.slug, name: p.name, colour: colour.name, size: variant.size, image: colour.images[0], prices: variant.prices ?? p.prices });
-    setCartOpen(true);
+    if (!variant) { setError("Please select your size."); document.getElementById("size-picker")?.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
+    if (variant.stock < 1) { setError("This size is sold out. Please choose another."); return; }
+    if (qty > variant.stock) { setError(`Only ${variant.stock} available in size ${variant.size}.`); return; }
+    addToCart({ productId: p.id, variantId: variant.id, slug: p.slug, name: p.name, colour: colour.name, size: variant.size, image: colour.images[0], prices: variant.prices ?? p.prices }, qty);
+    setAdded(true);
+    setTimeout(() => { setAdded(false); setCartOpen(true); }, 650);
   };
 
+  const availability = !anyStock ? { tone: "out", text: "Currently sold out in this colour" }
+    : variant ? (variant.stock === 0 ? { tone: "out", text: `Size ${variant.size} is sold out` } : variant.stock < 4 ? { tone: "low", text: `Only ${variant.stock} left in size ${variant.size}` } : { tone: "in", text: madeToOrder ? "Made to order — dispatched in 4–10 weeks" : "In stock — ready to dispatch" })
+    : { tone: "in", text: madeToOrder ? "Made to order in our Lahore atelier" : "In stock in selected sizes" };
+
   return (
-    <div className="grid items-start gap-[clamp(28px,5vw,90px)] md:grid-cols-[minmax(0,1.35fr)_minmax(340px,.8fr)]">
-      {/* Gallery: grid on desktop, swipeable on mobile */}
-      <div className="no-scrollbar -mx-[clamp(18px,3.2vw,48px)] flex snap-x snap-mandatory gap-1.5 overflow-x-auto md:mx-0 md:grid md:grid-cols-2 md:gap-2.5 md:overflow-visible" aria-label={`${p.name} images`}>
-        <AnimatePresence mode="popLayout" initial={false}>
-          {colour.images.map((img, i) => (
-            <motion.div
-              key={img.id}
-              initial={{ opacity: 0, clipPath: "inset(0 0 12% 0)" }}
-              animate={{ opacity: 1, clipPath: "inset(0 0 0% 0)" }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.9, ease, delay: i * 0.06 }}
-              className={cn("shrink-0 basis-[86%] snap-center md:basis-auto", i === 0 && "md:col-span-2")}
-            >
-              <EditorialImage image={img} className={cn("aspect-[4/5.2]", i === 0 && "md:aspect-[4/4.4]")} priority={i === 0} sizes="(max-width:768px) 86vw, 50vw" />
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
+    <>
+      <div className="grid items-start gap-[clamp(24px,4.4vw,80px)] lg:grid-cols-[minmax(0,1.3fr)_minmax(360px,0.75fr)]">
+        <ProductGallery images={colour.images} name={p.name} />
 
-      <div className="md:sticky md:top-[96px]">
-        <p className="eyebrow">{p.isNew ? "New in" : categoryName}</p>
-        <h1 className="mt-3 font-serif text-[clamp(38px,4vw,58px)] leading-[1.02] font-light">{p.name}</h1>
-        <p className="mt-1 text-[14px] text-charcoal/60">{p.subtitle}</p>
-        <Price prices={variant?.prices ?? p.prices} compareAt={p.compareAtPrices} className="mt-5 block text-[18px]" />
-        <p className="mt-1 text-[12px] text-charcoal/50">{market.currency === "PKR" ? "Inclusive of GST" : market.zone === "international" && ["gb", "eu"].includes(market.id) ? "Duties & VAT included" : "Import duties may apply"}</p>
-        <p className="mt-6 max-w-[460px] text-[14.5px] text-charcoal/75">{p.description}</p>
-
-        <fieldset className="mt-7">
-          <legend className="mb-3 text-[10.5px] tracking-[0.22em] uppercase">Colour — <span className="text-charcoal/65">{colour.name}</span></legend>
-          <div className="flex gap-3">
-            {p.colours.map((c, i) => (
-              <button key={c.id} onClick={() => { setColourIdx(i); setError(""); }} aria-pressed={i === colourIdx} aria-label={c.name}
-                className={cn("relative h-9 w-9 rounded-full border border-black/15", i === colourIdx && "after:absolute after:-inset-[6px] after:rounded-full after:border after:border-charcoal")} style={{ background: c.hex }} />
-            ))}
+        <div className="lg:sticky lg:top-24">
+          <p className="eyebrow text-bronze">{p.isNew ? "New in" : categoryName}</p>
+          <h1 className="display mt-3 text-[clamp(32px,3.2vw,48px)] uppercase tracking-[0.02em]">{p.name}</h1>
+          <p className="mt-1.5 text-[14px] text-taupe">{p.subtitle}</p>
+          <div className="mt-5 flex items-baseline gap-3">
+            <Price prices={variant?.prices ?? p.prices} compareAt={p.compareAtPrices} className="text-[19px]" />
+            <span className="text-[12px] text-taupe">{market.currency === "PKR" ? "incl. GST" : ["gb", "eu"].includes(market.id) ? "Duties & VAT included" : "Import duties may apply"}</span>
           </div>
-        </fieldset>
 
-        {p.sizes.length > 1 && (
-          <fieldset className="mt-7" id="size-picker">
-            <div className="mb-3 flex justify-between text-[10.5px] tracking-[0.22em] uppercase">
-              <legend>Size{size ? ` — ${size}` : ""}</legend>
-              <a href="#size-guide" className="ulink !text-[10px]">Size guide</a>
+          <fieldset className="mt-8">
+            <legend className="mb-3 text-[10.5px] tracking-[0.22em] uppercase">Colour <span className="ml-1 tracking-[0.12em] text-taupe normal-case">{colour.name}</span></legend>
+            <div className="flex gap-2.5">
+              {p.colours.map((c, i) => (
+                <button key={c.id} onClick={() => { setColourIdx(i); setSize(null); setError(""); }} aria-pressed={i === colourIdx} aria-label={c.name}
+                  className={cn("relative h-14 w-11 overflow-hidden border transition-colors", i === colourIdx ? "border-chocolate" : "border-line hover:border-taupe")}>
+                  {c.images[0]?.src ? <span className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${imageLoader({ src: c.images[0].src, width: 120 })})` }} /> : <span className="absolute inset-0" style={{ background: c.hex }} />}
+                </button>
+              ))}
             </div>
-            <div className="grid grid-cols-6 gap-2">
-              {p.sizes.map((s) => {
-                const st = stockFor(s);
-                return (
-                  <button key={s} disabled={st === 0} onClick={() => { setSize(s); setError(""); }} aria-pressed={size === s} aria-label={`${s}${st === 0 ? ", sold out" : st < 4 ? `, only ${st} left` : ""}`}
-                    className={cn("relative border py-3 text-[12.5px] transition-colors", size === s ? "border-charcoal bg-charcoal text-ivory" : "border-line hover:border-charcoal", st === 0 && "text-charcoal/30 line-through", error && !size && "border-clay")}>
-                    {s}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-2 min-h-5 text-[12.5px] text-clay" role="alert">{error || (variant && variant.stock > 0 && variant.stock < 4 ? `Only ${variant.stock} left in this size` : "")}</p>
           </fieldset>
-        )}
 
-        <div className="mt-4 flex gap-3">
-          <Button onClick={add} full>Add to bag</Button>
-          <WishButton item={{ productId: p.id, slug: p.slug, name: p.name, subtitle: p.subtitle, image: colour.images[0], prices: p.prices }} className="shrink-0 border border-line px-4" />
+          {p.sizes.length > 1 && (
+            <fieldset className="mt-7 scroll-mt-32" id="size-picker">
+              <div className="mb-3 flex items-baseline justify-between">
+                <legend className="text-[10.5px] tracking-[0.22em] uppercase">Size{size ? <span className="ml-1 tracking-[0.12em] text-taupe">{size}</span> : null}</legend>
+                <SizeGuideButton fit={p.fit} />
+              </div>
+              <div className="grid grid-cols-6 gap-1.5 max-sm:grid-cols-3">
+                {p.sizes.map((s) => {
+                  const st = stockFor(s);
+                  return (
+                    <button key={s} disabled={st === 0} onClick={() => { setSize(s); setError(""); setQty(1); }} aria-pressed={size === s}
+                      aria-label={`Size ${s}${st === 0 ? ", sold out" : st < 4 ? `, only ${st} left` : ""}`}
+                      className={cn("relative min-h-12 border text-[13px] transition-colors", size === s ? "border-chocolate bg-chocolate text-offwhite" : "border-line hover:border-chocolate", st === 0 && "cursor-not-allowed text-taupe/50", error && !size && "border-bronze")}>
+                      {s}
+                      {st === 0 && <span aria-hidden className="absolute inset-0 bg-[linear-gradient(to_top_right,transparent_calc(50%-0.5px),var(--color-stone)_50%,transparent_calc(50%+0.5px))]" />}
+                      {st > 0 && st < 4 && size !== s && <span aria-hidden className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-bronze" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
+
+          <p className={cn("mt-4 flex items-center gap-2 text-[13px]", availability.tone === "out" ? "text-danger" : availability.tone === "low" ? "text-bronze" : "text-taupe")} aria-live="polite">
+            <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", availability.tone === "out" ? "bg-danger" : availability.tone === "low" ? "bg-bronze" : "bg-success")} />
+            {availability.text}
+          </p>
+          <p className="mt-1 min-h-5 text-[13px] text-danger" role="alert">{error}</p>
+
+          <div ref={buyRef} className="mt-3 flex gap-2.5">
+            <QuantityStepper value={qty} onChange={(n) => { setQty(Math.max(1, Math.min(10, n))); setError(""); }} label={p.name} />
+            <button onClick={add} disabled={!anyStock} className="relative min-h-12 flex-1 overflow-hidden bg-chocolate text-[11px] tracking-[0.24em] text-offwhite uppercase transition-colors duration-500 hover:bg-espresso disabled:bg-stone disabled:text-taupe">
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.span key={added ? "added" : "add"} initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.3, ease }} className="block">
+                  {!anyStock ? "Sold out" : added ? "Added to bag ✓" : "Add to bag"}
+                </motion.span>
+              </AnimatePresence>
+            </button>
+            <WishButton item={{ productId: p.id, slug: p.slug, name: p.name, subtitle: p.subtitle, image: colour.images[0], prices: p.prices }} className="grid min-h-12 w-12 shrink-0 place-items-center border border-line hover:border-chocolate" />
+          </div>
+          {fastest && <p className="mt-4 text-[12.5px] text-taupe">{fastest.label} to {market.name}: {fastest.estimatedDays[0]}–{fastest.estimatedDays[1]} working days{market.id === "pk" ? " · Cash on delivery available" : ""}</p>}
+
+          <p className="mt-8 text-[14.5px] leading-relaxed text-chocolate/85">{p.description}</p>
+          <ul className="mt-6 grid grid-cols-3 gap-2 border-y border-line py-4 text-center text-[11px] tracking-[0.08em] text-taupe">
+            <li>Designed in<br />Lahore</li>
+            <li>{/natural|cotton|linen|wool|silk|cashmere|merino/i.test(p.fabric) ? "Natural" : "Considered"}<br />fibres</li>
+            <li>{madeToOrder ? "Made to" : "Free returns"}<br />{madeToOrder ? "measure" : "in Pakistan"}</li>
+          </ul>
+          <div className="mt-2">{children}</div>
         </div>
-        {p.sizes.length === 1 && error && <p className="mt-2 text-[12.5px] text-clay" role="alert">{error}</p>}
-        {fastest && <p className="mt-4 text-center text-[12.5px] text-charcoal/55">{fastest.label} to {market.name} in {fastest.estimatedDays[0]}–{fastest.estimatedDays[1]} working days</p>}
-        <div className="mt-8">{children}</div>
       </div>
 
-      {/* Mobile sticky buy bar */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-between gap-4 border-t border-line bg-paper px-[clamp(18px,3.2vw,48px)] py-3 md:hidden">
-        <div className="min-w-0"><p className="truncate font-serif text-[18px]">{p.name}</p><Price prices={p.prices} className="text-[13px]" /></div>
-        <Button onClick={add} size="sm">{size ? "Add to bag" : "Select size"}</Button>
-      </div>
-    </div>
+      {/* Sticky buy bar — desktop (top) / mobile (bottom) */}
+      <AnimatePresence>
+        {showBar && (
+          <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ duration: 0.45, ease }}
+            className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-offwhite/97 backdrop-blur-md lg:top-16 lg:bottom-auto lg:border-t-0 lg:border-b">
+            <div className="gutter flex min-h-16 items-center justify-between gap-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-4">
+                <p className="label hidden truncate text-[14px] lg:block">{p.name}</p>
+                <p className="hidden text-[12.5px] text-taupe lg:block">{colour.name}{size ? ` · ${size}` : ""}</p>
+                <div className="min-w-0 lg:hidden"><p className="label truncate text-[13px]">{p.name}</p><Price prices={p.prices} className="text-[12.5px]" /></div>
+              </div>
+              <div className="flex shrink-0 items-center gap-5">
+                <Price prices={p.prices} className="hidden text-[15px] lg:block" />
+                <button onClick={size ? add : () => document.getElementById("size-picker")?.scrollIntoView({ block: "center", behavior: "smooth" })} disabled={!anyStock}
+                  className="min-h-11 bg-chocolate px-7 text-[10.5px] tracking-[0.22em] text-offwhite uppercase disabled:bg-stone">
+                  {!anyStock ? "Sold out" : size ? (added ? "Added ✓" : "Add to bag") : "Select size"}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }

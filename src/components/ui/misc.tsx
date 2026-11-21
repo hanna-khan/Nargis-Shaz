@@ -30,13 +30,13 @@ export function Accordion({ items, defaultOpen = 0 }: { items: { title: string; 
   );
 }
 
-export function Breadcrumbs({ items }: { items: { name: string; href?: string }[] }) {
+export function Breadcrumbs({ items, tone = "dark" }: { items: { name: string; href?: string }[]; tone?: "dark" | "light" }) {
   return (
-    <nav aria-label="Breadcrumb" className="text-[10.5px] tracking-[0.2em] uppercase text-charcoal/60">
+    <nav aria-label="Breadcrumb" className={tone === "light" ? "text-[10.5px] tracking-[0.2em] text-offwhite/65 uppercase [&_a:hover]:text-offwhite" : "text-[10.5px] tracking-[0.2em] text-taupe uppercase [&_a:hover]:text-chocolate"}>
       <ol className="flex flex-wrap items-center gap-2">
         {items.map((it, i) => (
           <li key={it.name} className="flex items-center gap-2">
-            {it.href ? <Link href={it.href} className="hover:text-charcoal">{it.name}</Link> : <span aria-current="page" className="text-charcoal/80">{it.name}</span>}
+            {it.href ? <Link href={it.href}>{it.name}</Link> : <span aria-current="page" className="opacity-90">{it.name}</span>}
             {i < items.length - 1 && <span aria-hidden>/</span>}
           </li>
         ))}

@@ -43,7 +43,7 @@ export function ProductEditor({ id }: { id?: string }) {
   const existing = id ? products.find((p) => p.id === id) : undefined;
   const blank: Product = useMemo(() => ({
     id: `prd_new_${products.length + 1}`, slug: "", name: "", subtitle: "", description: "", categoryId: categories[0].id, collectionIds: [], occasionIds: [],
-    prices: { PKR: 0, USD: 0, GBP: 0, EUR: 0 }, colours: [{ id: "c0", name: "Ivory", hex: "#F3EADB", images: [{ id: "c0-0", alt: "New product", art: { kind: "dress", color: "#C7B49D", scene: "oat", view: 0 } }] }],
+    prices: { PKR: 0, USD: 0, GBP: 0, EUR: 0 }, colours: [{ id: "c0", name: "Ivory", hex: "#F3EADB", images: [{ id: "c0-0", alt: "New product — photography to be uploaded" }] }],
     sizes: ["XS", "S", "M", "L", "XL", "XXL"], variants: [], fabric: "", care: [], details: [], tags: [], isNew: true, status: "draft", createdAt: "2026-11-21T09:00:00.000Z",
   }), [products.length, categories]);
   const [p, setP] = useState<Product>(existing ?? blank);
@@ -101,7 +101,7 @@ export function ProductEditor({ id }: { id?: string }) {
                 </div>
               ))}
             </div>
-            <p className="mt-3 text-[12px] text-charcoal/55">Photography uploads connect to the media library in Phase 2 (Supabase Storage).</p>
+            <p className="mt-3 text-[12px] text-charcoal/55">Images are referenced from the media library. Current frames are licensed sample photography (see credits in Media); uploads to Supabase Storage arrive in Phase 2.</p>
           </Card>
           {existing && (
             <Card title="Variants" padded={false}>

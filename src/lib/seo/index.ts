@@ -5,6 +5,13 @@ import { stripEmphasis } from "@/lib/utils";
 
 export const absoluteUrl = (path = "/") => new URL(path, site.url).toString();
 
+/** Social share crop of a photograph (1200×630) via its CDN. */
+export function ogImage(src?: string) {
+  if (!src) return undefined;
+  if (src.startsWith("https://images.pexels.com/")) return `${src}?auto=compress&cs=tinysrgb&fit=crop&w=1200&h=630`;
+  return src.startsWith("http") ? src : absoluteUrl(src);
+}
+
 /** Consistent metadata for every public page: title, description, canonical, OG, Twitter. */
 export function pageMetadata(args: { title: string; description: string; path: string; image?: string; noIndex?: boolean; type?: "website" | "article" }): Metadata {
   // Images come from file-based `opengraph-image` routes (root + per product) unless overridden.
@@ -24,11 +31,12 @@ export function productMetadata(p: Product): Metadata {
     title: p.seo?.title ?? `${p.name} — ${p.subtitle}`,
     description: p.seo?.description ?? `${p.description.slice(0, 140).trimEnd()}… ${p.fabric}. Rs ${(p.prices.PKR / 100).toLocaleString("en-PK")}.`,
     path: `/products/${p.slug}`,
+    image: ogImage(p.colours[0].images[0]?.src),
   });
 }
 
 export function collectionMetadata(c: Collection, path: string): Metadata {
-  return pageMetadata({ title: c.seo?.title ?? c.name, description: c.seo?.description ?? c.description, path });
+  return pageMetadata({ title: c.seo?.title ?? c.name, description: c.seo?.description ?? c.description, path, image: ogImage(c.hero.src) });
 }
 
 /* ---------------- JSON-LD ---------------- */
@@ -78,7 +86,7 @@ export function productJsonLd(p: Product, categoryName: string) {
     material: p.fabric,
     productGroupID: p.id,
     variesBy: ["https://schema.org/color", "https://schema.org/size"],
-    image: p.colours[0].images.filter((i) => i.src).map((i) => absoluteUrl(i.src!)).concat(absoluteUrl("/opengraph-image")).slice(0, 4),
+    image: p.colours.flatMap((c) => c.images).filter((i) => i.src).slice(0, 6).map((i) => ogImage(i.src)!.replace(/&h=630/, "")),
     offers: {
       "@type": "AggregateOffer",
       priceCurrency: "PKR",

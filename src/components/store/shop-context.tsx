@@ -54,11 +54,15 @@ interface ShopState {
   isWished: (productId: string) => boolean;
   cartOpen: boolean;
   setCartOpen: (v: boolean) => void;
+  /** Changes on every successful add — drives the bag icon / confirmation feedback. */
+  lastAdded: string | null;
+  recentlyViewed: WishItem[];
+  trackView: (item: WishItem) => void;
   hydrated: boolean;
 }
 
 const Ctx = createContext<ShopState | null>(null);
-const KEY = { cart: "ns.cart.v1", wish: "ns.wish.v1", market: "ns.market.v1" };
+const KEY = { cart: "ns.cart.v1", wish: "ns.wish.v1", market: "ns.market.v1", recent: "ns.recent.v1" };
 
 function read<T>(k: string, fallback: T): T {
   try {
@@ -81,6 +85,8 @@ export function ShopProvider({ config, children }: { config: CommerceConfig; chi
   const [cart, setCart] = useState<CartLine[]>([]);
   const [wishlist, setWishlist] = useState<WishItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [lastAdded, setLastAdded] = useState<string | null>(null);
+  const [recentlyViewed, setRecent] = useState<WishItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -88,6 +94,7 @@ export function ShopProvider({ config, children }: { config: CommerceConfig; chi
     /* eslint-disable react-hooks/set-state-in-effect */
     setCart(read(KEY.cart, []));
     setWishlist(read(KEY.wish, []));
+    setRecent(read(KEY.recent, []));
     const saved = read<string | null>(KEY.market, null);
     if (saved && config.markets.some((m) => m.id === saved)) setMarketId(saved);
     setHydrated(true);
@@ -104,7 +111,11 @@ export function ShopProvider({ config, children }: { config: CommerceConfig; chi
   const format = useCallback((a: number) => formatMoney(a, currency), [currency]);
   const price = useCallback((s: PriceSet) => formatMoney(s[currency], currency), [currency]);
 
+  const trackView = useCallback((item: WishItem) => {
+    setRecent((r) => { const next = [item, ...r.filter((x) => x.productId !== item.productId)].slice(0, 12); write(KEY.recent, next); return next; });
+  }, []);
   const addToCart = useCallback((line: Omit<CartLine, "quantity">, qty = 1) => {
+    setLastAdded(`${line.variantId}:${Date.now()}`);
     setCart((c) => {
       const f = c.find((l) => l.variantId === line.variantId);
       if (f) return c.map((l) => (l.variantId === line.variantId ? { ...l, quantity: Math.min(10, l.quantity + qty) } : l));
@@ -124,8 +135,8 @@ export function ShopProvider({ config, children }: { config: CommerceConfig; chi
   const value = useMemo<ShopState>(() => ({
     config, market, currency, setMarket, format, price,
     cart, cartCount: cart.reduce((a, l) => a + l.quantity, 0), subtotal: cart.reduce((a, l) => a + l.prices[currency] * l.quantity, 0),
-    addToCart, updateQuantity, removeFromCart, clearCart, wishlist, toggleWish, isWished, cartOpen, setCartOpen, hydrated,
-  }), [config, market, currency, setMarket, format, price, cart, addToCart, updateQuantity, removeFromCart, clearCart, wishlist, toggleWish, isWished, cartOpen, hydrated]);
+    addToCart, updateQuantity, removeFromCart, clearCart, wishlist, toggleWish, isWished, cartOpen, setCartOpen, lastAdded, recentlyViewed, trackView, hydrated,
+  }), [config, market, currency, setMarket, format, price, cart, addToCart, updateQuantity, removeFromCart, clearCart, wishlist, toggleWish, isWished, cartOpen, lastAdded, recentlyViewed, trackView, hydrated]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -141,8 +152,8 @@ export function Price({ prices, compareAt, className }: { prices: PriceSet; comp
   const { price, currency } = useShop();
   return (
     <span className={className}>
-      {compareAt && compareAt[currency] > prices[currency] && <s className="mr-2 text-charcoal/45">{price(compareAt)}</s>}
-      {price(prices)}
+      {compareAt && compareAt[currency] > prices[currency] && <s className="mr-2 text-taupe/80">{price(compareAt)}</s>}
+      <span className={compareAt && compareAt[currency] > prices[currency] ? "text-bronze" : undefined}>{price(prices)}</span>
     </span>
   );
 }

@@ -1,38 +1,45 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { CardGrid } from "./product/catalog-browser";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
+import { ProductCard } from "./product/product-card";
+import type { CardProduct } from "./product/card-data";
 
-const SUGGESTIONS = ["Silk", "Cashmere", "Dress", "Festive", "Workwear", "Gold"];
+const SUGGESTIONS = ["Satin", "Blazer", "Linen", "Lehenga", "Trench", "Skirt"];
 
-export function SearchResults({ index, cards }: { index: { id: string; text: string }[]; cards: Record<string, ReactNode> }) {
+export function SearchResults({ items }: { items: { card: CardProduct; text: string }[] }) {
   const params = useSearchParams();
   const router = useRouter();
   const q = params.get("q") ?? "";
   const [value, setValue] = useState(q);
-  const ids = useMemo(() => {
+  const results = useMemo(() => {
     const t = q.trim().toLowerCase();
     if (!t) return [];
-    return index.filter((p) => t.split(/\s+/).every((w) => p.text.includes(w))).map((p) => p.id);
-  }, [q, index]);
+    return items.filter((p) => t.split(/\s+/).every((w) => p.text.includes(w))).map((p) => p.card);
+  }, [q, items]);
 
   return (
     <>
-      <section className="px-[clamp(18px,3.2vw,48px)] pt-16 pb-6">
-        <h1 className="eyebrow mb-6">Search</h1>
-        <form role="search" onSubmit={(e) => { e.preventDefault(); router.replace(`/search?q=${encodeURIComponent(value)}`); }}>
+      <section className="gutter pt-14 pb-8">
+        <h1 className="eyebrow mb-6 text-bronze">Search</h1>
+        <form role="search" onSubmit={(e) => { e.preventDefault(); router.replace(`/search?q=${encodeURIComponent(value.trim())}`); }}>
           <label htmlFor="q" className="sr-only">Search the collection</label>
-          <input id="q" type="search" value={value} onChange={(e) => setValue(e.target.value)} placeholder="What are you looking for?"
-            className="w-full border-b border-charcoal bg-transparent py-3 font-serif text-[clamp(32px,5vw,64px)] font-light outline-none placeholder:text-charcoal/30" />
+          <input id="q" type="search" value={value} onChange={(e) => setValue(e.target.value)} placeholder="What are you looking for?" autoComplete="off"
+            className="w-full border-b border-chocolate bg-transparent py-3 font-serif text-[clamp(30px,4.6vw,60px)] outline-none placeholder:text-taupe/45" />
         </form>
         <div className="mt-6 flex flex-wrap gap-2">
-          {SUGGESTIONS.map((s) => <Link key={s} href={`/search?q=${s.toLowerCase()}`} onClick={() => setValue(s.toLowerCase())} className="rounded-full border border-line px-4 py-2 text-[10.5px] tracking-[0.16em] uppercase hover:border-charcoal">{s}</Link>)}
+          {SUGGESTIONS.map((s) => <Link key={s} href={`/search?q=${s.toLowerCase()}`} onClick={() => setValue(s.toLowerCase())} className="border border-line px-4 py-2 text-[10.5px] tracking-[0.18em] uppercase hover:border-chocolate">{s}</Link>)}
         </div>
-        {q && <p className="mt-10 text-[11px] tracking-[0.16em] text-charcoal/55 uppercase" aria-live="polite">{ids.length} result{ids.length === 1 ? "" : "s"} for “{q}”</p>}
+        {q && <p className="mt-10 text-[11px] tracking-[0.16em] text-taupe uppercase" aria-live="polite">{results.length} result{results.length === 1 ? "" : "s"} for “{q}”</p>}
       </section>
-      {ids.length > 0 ? <CardGrid ids={ids} cards={cards} /> : q ? <p className="px-6 py-24 text-center text-charcoal/60">We couldn&apos;t find anything for “{q}”. Try a fabric, colour or occasion.</p> : <div className="pb-24" />}
+      {results.length > 0 ? (
+        <ul className="gutter grid grid-cols-2 gap-x-[clamp(8px,1.4vw,24px)] gap-y-12 pb-24 max-md:gap-x-1.5 max-md:px-1.5 md:grid-cols-3 xl:grid-cols-4">
+          {results.map((p, i) => <li key={p.id}><ProductCard product={p} priority={i < 4} /></li>)}
+        </ul>
+      ) : q ? (
+        <p className="gutter py-24 text-center text-taupe">Nothing found for “{q}”. Try a fabric, a colour or an occasion — or <Link href="/shop" className="underline underline-offset-4">browse the full collection</Link>.</p>
+      ) : <div className="pb-24" />}
     </>
   );
 }

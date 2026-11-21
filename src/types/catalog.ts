@@ -1,28 +1,28 @@
 import type { PriceSet } from "./commerce";
 
-export type GarmentKind =
-  | "dress"
-  | "blouse"
-  | "knit"
-  | "trousers"
-  | "coat"
-  | "kurta"
-  | "bag"
-  | "shoes"
-  | "jewelry"
-  | "scarf";
+export type GarmentKind = "dress" | "blouse" | "knit" | "trousers" | "coat" | "kurta" | "skirt" | "set" | "bag" | "shoes" | "jewelry" | "scarf";
 
 /** Art-direction scene for illustrated imagery when no photograph exists. */
 export type SceneTone = "camel" | "oat" | "clay" | "sage" | "night" | "blush" | "cocoa" | "ivory";
 
+export interface ImageCredit {
+  source: "Pexels" | "Unsplash" | "Nargis & Shaz";
+  photographer: string;
+  photographerUrl?: string;
+  sourceUrl?: string;
+  license: string;
+}
+
 export interface ProductImage {
   id: string;
-  /** Real photograph URL (Supabase Storage later). Optional while art direction is illustrated. */
+  /** Photograph URL (Pexels CDN for sample imagery; Supabase Storage in production). */
   src?: string;
+  /** Licensing / attribution. Brand photography uses source "Nargis & Shaz". */
+  credit?: ImageCredit;
   alt: string;
   width?: number;
   height?: number;
-  /** Illustration fallback parameters. */
+  /** @deprecated Legacy illustration parameters (no longer rendered on the storefront). */
   art?: { kind: GarmentKind; color: string; scene: SceneTone; view: number; accent?: boolean };
 }
 
@@ -64,6 +64,10 @@ export interface Product {
   details: string[];
   fit?: string;
   tags: string[];
+  /** Hand-picked pairings shown as "Complete the look". */
+  completeTheLook?: string[];
+  /** Sales analytics snapshot (Phase 2: aggregated from orders). Drives bestsellers. */
+  stats?: { unitsSold30d: number };
   isNew: boolean;
   status: ProductStatus;
   createdAt: string; // ISO
@@ -78,6 +82,8 @@ export interface Category {
   name: string;
   description: string;
   sortOrder: number;
+  /** Editorial image for menus and category cards. */
+  image?: ProductImage;
 }
 
 export interface Collection {
@@ -95,7 +101,7 @@ export interface Collection {
   seo?: { title?: string; description?: string };
 }
 
-export type SortKey = "featured" | "newest" | "price-asc" | "price-desc";
+export type SortKey = "featured" | "newest" | "price-asc" | "price-desc" | "bestselling";
 
 export interface CatalogFilter {
   categoryIds?: string[];
@@ -104,6 +110,8 @@ export interface CatalogFilter {
   colours?: string[];
   sizes?: string[];
   newOnly?: boolean;
+  inStockOnly?: boolean;
+  priceRange?: [number, number];
   query?: string;
   sort?: SortKey;
 }

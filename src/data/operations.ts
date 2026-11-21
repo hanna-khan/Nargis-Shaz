@@ -74,7 +74,7 @@ function makeOrder(n: number, customerId: string, mk: keyof typeof MK, at: strin
 }
 
 export const orderData: Order[] = [
-  makeOrder(10432, "cus_006", "pk", "2026-11-21T08:14:00.000Z", [[9, 1], [17, 1]], "awaiting_cod", "unfulfilled"),
+  makeOrder(10432, "cus_006", "pk", "2026-11-21T08:14:00.000Z", [[9, 1], [16, 1]], "awaiting_cod", "unfulfilled"),
   makeOrder(10431, "cus_003", "gb", "2026-11-20T19:42:00.000Z", [[4, 1]], "paid", "processing"),
   makeOrder(10430, "cus_001", "pkcard", "2026-11-20T15:03:00.000Z", [[0, 1], [1, 2]], "paid", "shipped"),
   makeOrder(10429, "cus_007", "ae", "2026-11-20T11:27:00.000Z", [[9, 1], [12, 1]], "paid", "processing"),
@@ -126,28 +126,61 @@ export const staffData: StaffMember[] = [
 export const auditData: AuditLogEntry[] = [
   { id: "aud_010", at: "2026-11-21T08:31:00.000Z", actorId: "stf_005", actorName: "Bilal Saeed", action: "order.fulfilment_updated", resource: "orders", resourceId: "ord_10430", summary: "Marked NS-10430 as shipped", changes: { fulfilmentStatus: { from: "processing", to: "shipped" } } },
   { id: "aud_009", at: "2026-11-21T07:52:00.000Z", actorId: "stf_002", actorName: "Shaz Ali", action: "settings.payment_provider_updated", resource: "settings", summary: "Enabled PayPal for Europe", changes: { "payments.paypal.marketIds": { from: ["gb", "us"], to: ["gb", "us", "eu"] } } },
-  { id: "aud_008", at: "2026-11-20T18:05:00.000Z", actorId: "stf_003", actorName: "Hamza Tariq", action: "inventory.adjusted", resource: "inventory", resourceId: "prd_010", summary: "Restocked Gul Embroidered Dress (Midnight, M) +12" },
+  { id: "aud_008", at: "2026-11-20T18:05:00.000Z", actorId: "stf_003", actorName: "Hamza Tariq", action: "inventory.adjusted", resource: "inventory", resourceId: "prd_015", summary: "Restocked Noor Zari Lehenga (Ivory Gold, M) +6" },
   { id: "aud_007", at: "2026-11-20T16:20:00.000Z", actorId: "stf_004", actorName: "Mehwish Raza", action: "content.homepage_updated", resource: "content", summary: "Updated homepage hero headline" },
   { id: "aud_006", at: "2026-11-20T11:00:00.000Z", actorId: "stf_002", actorName: "Shaz Ali", action: "order.refunded", resource: "finance", resourceId: "ord_10424", summary: "Refunded NS-10424 in full (£233)" },
   { id: "aud_005", at: "2026-11-19T14:42:00.000Z", actorId: "stf_001", actorName: "Nargis Imran", action: "team.invited", resource: "team", resourceId: "stf_006", summary: "Invited areeba@nargisandshaz.com as Staff" },
   { id: "aud_004", at: "2026-11-19T10:12:00.000Z", actorId: "stf_003", actorName: "Hamza Tariq", action: "discount.created", resource: "discounts", resourceId: "dis_002", summary: "Created discount JASHN15" },
-  { id: "aud_003", at: "2026-11-18T09:30:00.000Z", actorId: "stf_004", actorName: "Mehwish Raza", action: "product.updated", resource: "products", resourceId: "prd_018", summary: "Published Rania Organza Dupatta", changes: { status: { from: "draft", to: "active" } } },
+  { id: "aud_003", at: "2026-11-18T09:30:00.000Z", actorId: "stf_004", actorName: "Mehwish Raza", action: "product.updated", resource: "products", resourceId: "prd_016", summary: "Published Shahzadi Bridal Set", changes: { status: { from: "draft", to: "active" } } },
 ];
 
 /* ---------------- Content & settings ---------------- */
 
 export const homepageData: HomepageContent = {
-  announcement: "Complimentary delivery across Pakistan over Rs 10,000 · Worldwide shipping, duties paid to the UK & EU",
+  announcement: "Complimentary delivery across Pakistan over Rs 10,000 · Duties paid to the UK & EU",
   hero: {
     eyebrow: "Autumn · Winter 2026",
-    headline: "Dressed for the *life* you lead",
-    body: "Tailoring that moves, knits you will live in, and evening pieces made to be remembered. Designed for working women and every celebration in between.",
-    primaryCta: { label: "Shop new arrivals", href: "/new-arrivals" },
-    secondaryCta: { label: "The festive edit", href: "/festive" },
+    headline: "Designed for *every chapter*",
+    body: "Soft tailoring, considered knits and evening pieces made to be remembered — for the woman who moves between the boardroom and the celebration.",
+    primaryCta: { label: "Discover the collection", href: "/collections/autumn-winter-2026" },
+    secondaryCta: { label: "New in", href: "/new-arrivals" },
+    imageId: "px-8433535",
+    mobileImageId: "px-8433356",
   },
+  newArrivals: { eyebrow: "Just arrived", title: "New *arrivals*", limit: 8 },
+  categoryCards: [
+    { title: "Workwear", href: "/workwear", imageId: "px-8958833" },
+    { title: "Everyday", href: "/everyday", imageId: "px-17805846" },
+    { title: "Dresses", href: "/shop/dresses", imageId: "px-9563080" },
+    { title: "Festive & Occasion", href: "/festive", imageId: "px-9418537" },
+  ],
+  campaign: {
+    eyebrow: "The campaign",
+    headline: "Made for the *whole* of your day",
+    body: "From the first meeting to the last dinner reservation: a wardrobe that keeps its shape, and its composure, from morning to night.",
+    cta: { label: "Shop workwear", href: "/workwear" },
+    imageIds: ["px-8433588", "px-4456727", "px-7945663"],
+  },
+  bestsellers: { eyebrow: "Most loved", title: "The *bestsellers*", mode: "auto", productIds: [], limit: 4 },
   statement: { eyebrow: "The house", text: "Clothes that carry you from the *first meeting* to the last *celebration* — and are still loved a decade later." },
+  editorial: {
+    eyebrow: "The art of dressing",
+    headline: "Light, line and *movement*",
+    body: "Satin cut on the bias, pleats that hold their shape, linen that softens with every wash. We design for the way fabric moves on a body — and the way you move through your day.",
+    imageIds: ["px-21926474", "px-9563093", "px-17805846", "px-8958830"],
+    cta: { label: "Discover the evening edit", href: "/collections/the-evening-edit" },
+  },
+  details: {
+    eyebrow: "A closer look",
+    headline: "In the *details*",
+    items: [
+      { title: "Organic poplin", body: "Crisp cotton that softens over time, finished with mother-of-pearl buttons.", imageId: "px-7945663" },
+      { title: "Hand-finished zari", body: "Gold thread embroidered by master karigars in our Lahore atelier.", imageId: "px-9418564" },
+      { title: "Chunky rib knit", body: "Merino and alpaca, knitted dense and warm for the coldest mornings.", imageId: "px-6995886" },
+    ],
+  },
   featuredCollectionIds: ["col-everyday", "col-evening", "col-festive"],
-  story: { eyebrow: "Our story", headline: "Made slowly, for women who *never stop moving*", body: "Nargis & Shaz began with a simple belief: a wardrobe should work as hard as you do, and look beautiful doing it. We choose natural fibres, work with small ateliers, and design every piece to be worn for years." },
+  story: { eyebrow: "Our story", headline: "Made slowly, for women who *never stop moving*", body: "Nargis & Shaz began in Lahore with a simple belief: a wardrobe should work as hard as you do, and look beautiful doing it. We choose natural fibres, work with small ateliers and design every piece to be worn for years.", imageId: "px-4456727" },
   quote: { text: "The kind of wardrobe you stop thinking about, because everything simply works.", attribution: "Mahnoor, Lahore" },
 };
 

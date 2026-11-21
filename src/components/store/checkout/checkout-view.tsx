@@ -116,7 +116,7 @@ export function CheckoutView() {
         <ul className="mb-6 max-h-[340px] space-y-4 overflow-y-auto">
           {cart.map((l) => (
             <li key={l.variantId} className="grid grid-cols-[64px_1fr_auto] items-center gap-4">
-              <div className="relative"><EditorialImage image={l.image} className="aspect-[4/5]" sizes="64px" /><span className="absolute -top-2 -right-2 grid h-5 w-5 place-items-center rounded-full bg-mocha text-[10px] text-white">{l.quantity}</span></div>
+              <div className="relative"><EditorialImage image={l.image} className="aspect-[3/4]" sizes="64px" /><span className="absolute -top-2 -right-2 grid h-5 w-5 place-items-center rounded-full bg-mocha text-[10px] text-white">{l.quantity}</span></div>
               <div><p className="font-serif text-[17px] leading-tight">{l.name}</p><p className="text-[12px] text-charcoal/55">{l.colour} · {l.size}</p></div>
               <p className="text-[13.5px]">{format(l.prices[currency] * l.quantity)}</p>
             </li>

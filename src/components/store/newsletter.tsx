@@ -1,33 +1,66 @@
 "use client";
 
-import { useState } from "react";
-import { Display, Eyebrow } from "@/components/ui/typography";
+import { AnimatePresence, motion } from "framer-motion";
+import { useState, useTransition } from "react";
+import { subscribeNewsletter } from "@/lib/marketing/newsletter";
+import { cn } from "@/lib/utils";
+import { Reveal } from "@/components/ui/reveal";
+import { Emph } from "@/components/ui/typography";
 
-/** Newsletter capture UI. Phase 2: submit to a Server Action that stores consent in Supabase. */
-export function Newsletter() {
-  const [state, setState] = useState<"idle" | "done" | "error">("idle");
+/** Shared sign-up form: inline validation, pending state, success/error messaging. */
+export function NewsletterForm({ tone = "dark", id }: { tone?: "dark" | "light"; id: string }) {
+  const [state, setState] = useState<{ status: "idle" | "done" | "error"; message?: string }>({ status: "idle" });
+  const [pending, start] = useTransition();
+  const light = tone === "light";
   return (
-    <section className="bg-beige/60 px-6 py-[clamp(70px,9vw,130px)] text-center" aria-labelledby="newsletter-title">
-      <Eyebrow>The letter</Eyebrow>
-      <Display as="h2" size="lg" text="Stories, first *access*, and quiet *invitations*" className="mx-auto mt-4 max-w-[760px]" />
-      {state === "done" ? (
-        <p className="mt-9 font-serif text-[22px] italic" role="status">Thank you — your first letter is on its way.</p>
+    <AnimatePresence mode="wait" initial={false}>
+      {state.status === "done" ? (
+        <motion.p key="done" role="status" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="font-serif text-[20px] italic">
+          Thank you — you&apos;ll hear from us soon.
+        </motion.p>
       ) : (
-        <form
-          className="mx-auto mt-9 flex max-w-[520px] border-b border-charcoal"
+        <motion.form
+          key="form"
+          noValidate
           onSubmit={(e) => {
             e.preventDefault();
-            const email = new FormData(e.currentTarget).get("email") as string;
-            setState(/^\S+@\S+\.\S+$/.test(email) ? "done" : "error");
+            const data = new FormData(e.currentTarget);
+            start(async () => {
+              const r = await subscribeNewsletter(data);
+              setState(r.ok ? { status: "done" } : { status: "error", message: r.error });
+            });
           }}
         >
-          <label htmlFor="newsletter-email" className="sr-only">Email address</label>
-          <input id="newsletter-email" name="email" type="email" required placeholder="Your email address" className="flex-1 bg-transparent py-3.5 text-[15px] outline-none placeholder:text-charcoal/45" />
-          <button className="text-[11px] tracking-[0.24em] uppercase">Subscribe</button>
-        </form>
+          <div className={cn("flex border-b transition-colors", light ? "border-offwhite/50 focus-within:border-offwhite" : "border-chocolate/40 focus-within:border-chocolate", state.status === "error" && "border-danger")}>
+            <label htmlFor={id} className="sr-only">Email address</label>
+            <input
+              id={id} name="email" type="email" autoComplete="email" placeholder="Email address" aria-invalid={state.status === "error"} aria-describedby={`${id}-msg`}
+              onChange={() => state.status === "error" && setState({ status: "idle" })}
+              className={cn("min-w-0 flex-1 bg-transparent py-3.5 text-[15px] outline-none", light ? "placeholder:text-offwhite/50" : "placeholder:text-taupe")}
+            />
+            <button disabled={pending} className="shrink-0 pl-4 text-[11px] tracking-[0.24em] uppercase disabled:opacity-50">{pending ? "Sending…" : "Subscribe"}</button>
+          </div>
+          <p id={`${id}-msg`} role={state.status === "error" ? "alert" : undefined} className={cn("mt-2 min-h-5 text-[12.5px]", state.status === "error" ? (light ? "text-[#f0b9ad]" : "text-danger") : light ? "text-offwhite/55" : "text-taupe")}>
+            {state.status === "error" ? state.message : "Unsubscribe at any time. We never share your details."}
+          </p>
+        </motion.form>
       )}
-      {state === "error" && <p className="mt-3 text-[12.5px] text-danger">Please enter a valid email address.</p>}
-      <p className="mx-auto mt-5 max-w-[420px] text-[12px] text-charcoal/55">By subscribing you agree to receive emails from Nargis &amp; Shaz. Unsubscribe at any time.</p>
+    </AnimatePresence>
+  );
+}
+
+/** Homepage / story newsletter section. */
+export function Newsletter() {
+  return (
+    <section className="gutter bg-linen py-[clamp(72px,9vw,128px)]" aria-labelledby="newsletter-title">
+      <Reveal className="mx-auto grid max-w-[1100px] items-end gap-10 md:grid-cols-[1.1fr_1fr]">
+        <div>
+          <p className="eyebrow text-bronze">The Nargis &amp; Shaz letter</p>
+          <h2 id="newsletter-title" className="display mt-4 text-[clamp(34px,4vw,56px)]"><Emph text="First to see each *new chapter*" /></h2>
+          <p className="mt-4 max-w-[420px] text-taupe">Early access to new collections, private appointments at our Lahore atelier and the occasional story from behind the scenes.</p>
+        </div>
+        <NewsletterForm id="newsletter-main" />
+      </Reveal>
     </section>
   );
 }

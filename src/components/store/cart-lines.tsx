@@ -20,7 +20,7 @@ export function CartLines({ size = "sm", onNavigate }: { size?: "sm" | "lg"; onN
     <ul>
       {cart.map((l) => (
         <li key={l.variantId} className={size === "lg" ? "grid grid-cols-[120px_1fr_auto] gap-6 border-b border-line py-7" : "grid grid-cols-[92px_1fr] gap-5 border-b border-line py-5"}>
-          <Link href={`/products/${l.slug}`} onClick={onNavigate}><EditorialImage image={l.image} className="aspect-[4/5]" sizes="120px" /></Link>
+          <Link href={`/products/${l.slug}`} onClick={onNavigate}><EditorialImage image={l.image} className="aspect-[3/4]" sizes="120px" /></Link>
           <div>
             <Link href={`/products/${l.slug}`} onClick={onNavigate} className="font-serif text-[21px] leading-tight">{l.name}</Link>
             <p className="mt-1 text-[12.5px] text-charcoal/60">{l.colour} · {l.size}</p>

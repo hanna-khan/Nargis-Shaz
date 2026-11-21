@@ -12,53 +12,126 @@ import { AButton, AInput, ASelect, ATextarea, Card, DataTable, Gate, Modal, NoAc
 
 /* ───────────── Homepage content ───────────── */
 
+function ImagePick({ id, onChange, label }: { id: string; onChange: (id: string) => void; label: string }) {
+  const { media } = useAdmin();
+  const [open, setOpen] = useState(false);
+  const [folder, setFolder] = useState<"campaigns" | "products">("campaigns");
+  const current = media.find((m) => m.id === id);
+  return (
+    <div>
+      <p className="mb-1.5 text-[11.5px] text-charcoal/65">{label}</p>
+      <button type="button" onClick={() => setOpen(true)} className="group flex w-full items-center gap-3 rounded-[3px] border border-line bg-white p-2 text-left hover:border-charcoal">
+        <EditorialImage image={current} className="h-16 w-12 shrink-0 rounded-[2px]" sizes="48px" />
+        <span className="min-w-0 text-[12px]"><span className="block truncate">{current?.alt ?? "Choose an image"}</span><span className="text-charcoal/50">{current ? `${current.id} · change` : ""}</span></span>
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} title={`Choose: ${label}`}>
+        <Tabs value={folder} onChange={setFolder} tabs={[{ id: "campaigns", label: "Campaign & editorial" }, { id: "products", label: "Products" }]} />
+        <ul className="grid max-h-[50vh] grid-cols-4 gap-2 overflow-y-auto">
+          {media.filter((m) => (folder === "products" ? m.folder === "products" : m.folder !== "products")).map((m) => (
+            <li key={m.id}><button type="button" onClick={() => { onChange(m.id); setOpen(false); }} aria-pressed={m.id === id} className={`block w-full ${m.id === id ? "outline outline-2 outline-offset-2 outline-charcoal" : ""}`}><EditorialImage image={m} className="aspect-[3/4] rounded-[2px]" sizes="110px" /></button></li>
+          ))}
+        </ul>
+      </Modal>
+    </div>
+  );
+}
+
 export function ContentView() {
-  const { homepage, saveHomepage, collections, can } = useAdmin();
+  const { homepage, saveHomepage, collections, products, can } = useAdmin();
   const [h, setH] = useState<HomepageContent>(homepage);
   if (!can("content.view")) return <NoAccess perm="content.view" />;
   const editable = can("content.update");
   const dirty = JSON.stringify(h) !== JSON.stringify(homepage);
+  const set = <K extends keyof HomepageContent>(k: K, v: HomepageContent[K]) => setH({ ...h, [k]: v });
   return (
     <>
-      <PageHeader title="Homepage content" description="Edit the campaign copy shown on the storefront homepage. Use *asterisks* for italic emphasis."
+      <PageHeader title="Homepage content" description="Every homepage section reads from here. Wrap words in *asterisks* for italic emphasis. Images come from the media library."
         actions={<><AButton variant="outline" disabled={!dirty} onClick={() => setH(homepage)}>Discard</AButton><AButton disabled={!editable || !dirty} onClick={() => saveHomepage(h)}>Publish changes</AButton></>} />
+      <p className="mb-5 rounded-[3px] bg-beige/70 px-4 py-2.5 text-[12.5px]">Preview mode: published changes update this studio session only. In Phase 2 they are saved to Supabase and the storefront is revalidated.</p>
       <fieldset disabled={!editable} className="grid gap-6 xl:grid-cols-2">
-        <Card title="Announcement bar"><AInput value={h.announcement} onChange={(e) => setH({ ...h, announcement: e.target.value })} aria-label="Announcement" /></Card>
-        <Card title="Featured occasions">
-          <div className="flex flex-wrap gap-2">{collections.filter((c) => c.occasionId).map((c) => {
-            const on = h.featuredCollectionIds.includes(c.id);
-            return <button key={c.id} type="button" aria-pressed={on} onClick={() => setH({ ...h, featuredCollectionIds: on ? h.featuredCollectionIds.filter((x) => x !== c.id) : [...h.featuredCollectionIds, c.id].slice(0, 3) })} className={`rounded-full border px-3 py-1 text-[12px] ${on ? "border-charcoal bg-charcoal text-ivory" : "border-line bg-white"}`}>{c.name}</button>;
-          })}</div>
-          <p className="mt-2 text-[12px] text-charcoal/55">Up to three, shown as arches on the homepage.</p>
-        </Card>
-        <Card title="Hero">
+        <Card title="Announcement bar"><AInput value={h.announcement} onChange={(e) => set("announcement", e.target.value)} aria-label="Announcement" /></Card>
+        <Card title="A · Hero">
           <div className="space-y-3">
-            <AInput label="Eyebrow" value={h.hero.eyebrow} onChange={(e) => setH({ ...h, hero: { ...h.hero, eyebrow: e.target.value } })} />
-            <AInput label="Headline" value={h.hero.headline} onChange={(e) => setH({ ...h, hero: { ...h.hero, headline: e.target.value } })} />
-            <ATextarea label="Body" value={h.hero.body} onChange={(e) => setH({ ...h, hero: { ...h.hero, body: e.target.value } })} />
             <div className="grid grid-cols-2 gap-3">
-              <AInput label="Primary button" value={h.hero.primaryCta.label} onChange={(e) => setH({ ...h, hero: { ...h.hero, primaryCta: { ...h.hero.primaryCta, label: e.target.value } } })} />
-              <AInput label="Primary link" value={h.hero.primaryCta.href} onChange={(e) => setH({ ...h, hero: { ...h.hero, primaryCta: { ...h.hero.primaryCta, href: e.target.value } } })} />
+              <ImagePick label="Desktop image (landscape)" id={h.hero.imageId} onChange={(v) => set("hero", { ...h.hero, imageId: v })} />
+              <ImagePick label="Mobile image (portrait)" id={h.hero.mobileImageId} onChange={(v) => set("hero", { ...h.hero, mobileImageId: v })} />
+            </div>
+            <AInput label="Eyebrow" value={h.hero.eyebrow} onChange={(e) => set("hero", { ...h.hero, eyebrow: e.target.value })} />
+            <AInput label="Headline" value={h.hero.headline} onChange={(e) => set("hero", { ...h.hero, headline: e.target.value })} />
+            <ATextarea label="Body" value={h.hero.body} onChange={(e) => set("hero", { ...h.hero, body: e.target.value })} className="min-h-16" />
+            <div className="grid grid-cols-2 gap-3">
+              <AInput label="Primary button" value={h.hero.primaryCta.label} onChange={(e) => set("hero", { ...h.hero, primaryCta: { ...h.hero.primaryCta, label: e.target.value } })} />
+              <AInput label="Primary link" value={h.hero.primaryCta.href} onChange={(e) => set("hero", { ...h.hero, primaryCta: { ...h.hero.primaryCta, href: e.target.value } })} />
             </div>
           </div>
         </Card>
-        <Card title="Preview">
-          <div className="relative overflow-hidden rounded-[3px] bg-mocha p-8 text-ivory" style={{ background: "radial-gradient(120% 90% at 70% 20%, #E7DCCB, #C7B49D 50%, #9A8069)" }}>
-            <p className="text-[10px] tracking-[0.26em] uppercase">{h.hero.eyebrow}</p>
-            <p className="mt-3 font-serif text-[40px] leading-none font-light">{h.hero.headline.split(/(\*[^*]+\*)/).map((s, i) => (s.startsWith("*") ? <em key={i}>{s.slice(1, -1)}</em> : s))}</p>
-            <p className="mt-3 max-w-[340px] text-[13px] opacity-90">{h.hero.body}</p>
-            <span className="mt-5 inline-block border border-ivory px-5 py-2.5 text-[10px] tracking-[0.22em] uppercase">{h.hero.primaryCta.label}</span>
+        <Card title="B · New arrivals">
+          <div className="grid grid-cols-2 gap-3">
+            <AInput label="Title" value={h.newArrivals.title} onChange={(e) => set("newArrivals", { ...h.newArrivals, title: e.target.value })} />
+            <AInput label="Products shown" type="number" min={4} max={12} value={h.newArrivals.limit} onChange={(e) => set("newArrivals", { ...h.newArrivals, limit: Number(e.target.value) })} />
+          </div>
+          <p className="mt-2 text-[12px] text-charcoal/55">Shows products marked “New arrival”, newest first ({products.filter((p) => p.isNew).length} currently).</p>
+        </Card>
+        <Card title="C · Category cards">
+          <div className="grid grid-cols-2 gap-4">
+            {h.categoryCards.map((c, i) => (
+              <div key={i} className="space-y-2">
+                <ImagePick label={`Card ${i + 1}`} id={c.imageId} onChange={(v) => set("categoryCards", h.categoryCards.map((x, k) => (k === i ? { ...x, imageId: v } : x)))} />
+                <AInput aria-label="Card title" value={c.title} onChange={(e) => set("categoryCards", h.categoryCards.map((x, k) => (k === i ? { ...x, title: e.target.value } : x)))} />
+                <AInput aria-label="Card link" value={c.href} onChange={(e) => set("categoryCards", h.categoryCards.map((x, k) => (k === i ? { ...x, href: e.target.value } : x)))} />
+              </div>
+            ))}
           </div>
         </Card>
-        <Card title="Brand statement">
-          <ATextarea value={h.statement.text} onChange={(e) => setH({ ...h, statement: { ...h.statement, text: e.target.value } })} aria-label="Statement" />
-        </Card>
-        <Card title="Story band & quote">
+        <Card title="D · Campaign">
           <div className="space-y-3">
-            <AInput label="Story headline" value={h.story.headline} onChange={(e) => setH({ ...h, story: { ...h.story, headline: e.target.value } })} />
-            <ATextarea label="Story body" value={h.story.body} onChange={(e) => setH({ ...h, story: { ...h.story, body: e.target.value } })} />
-            <ATextarea label="Customer quote" value={h.quote.text} onChange={(e) => setH({ ...h, quote: { ...h.quote, text: e.target.value } })} className="min-h-16" />
-            <AInput label="Attribution" value={h.quote.attribution} onChange={(e) => setH({ ...h, quote: { ...h.quote, attribution: e.target.value } })} />
+            <div className="grid grid-cols-3 gap-3">{h.campaign.imageIds.map((id, i) => <ImagePick key={i} label={["Main", "Second", "Third"][i]} id={id} onChange={(v) => set("campaign", { ...h.campaign, imageIds: h.campaign.imageIds.map((x, k) => (k === i ? v : x)) })} />)}</div>
+            <AInput label="Headline" value={h.campaign.headline} onChange={(e) => set("campaign", { ...h.campaign, headline: e.target.value })} />
+            <ATextarea label="Body" value={h.campaign.body} onChange={(e) => set("campaign", { ...h.campaign, body: e.target.value })} className="min-h-16" />
+          </div>
+        </Card>
+        <Card title="E · Bestsellers">
+          <ASelect label="Selection" value={h.bestsellers.mode} onChange={(e) => set("bestsellers", { ...h.bestsellers, mode: e.target.value as "auto" | "manual" })}>
+            <option value="auto">Automatic — top sellers (last 30 days)</option><option value="manual">Manual — choose products</option>
+          </ASelect>
+          {h.bestsellers.mode === "manual" && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {products.filter((p) => p.status === "active").map((p) => {
+                const on = h.bestsellers.productIds.includes(p.id);
+                return <button key={p.id} type="button" aria-pressed={on} onClick={() => set("bestsellers", { ...h.bestsellers, productIds: on ? h.bestsellers.productIds.filter((x) => x !== p.id) : [...h.bestsellers.productIds, p.id] })} className={`rounded-full border px-2.5 py-1 text-[11.5px] ${on ? "border-charcoal bg-charcoal text-ivory" : "border-line bg-white"}`}>{p.name}</button>;
+              })}
+            </div>
+          )}
+        </Card>
+        <Card title="G · The art of dressing (editorial composition)">
+          <div className="space-y-3">
+            <ATextarea label="Scroll statement" value={h.statement.text} onChange={(e) => set("statement", { ...h.statement, text: e.target.value })} className="min-h-16" />
+            <div className="grid grid-cols-4 gap-2">{h.editorial.imageIds.map((id, i) => <ImagePick key={i} label={["Tall", "Square", "Wide", "Small"][i]} id={id} onChange={(v) => set("editorial", { ...h.editorial, imageIds: h.editorial.imageIds.map((x, k) => (k === i ? v : x)) })} />)}</div>
+            <AInput label="Headline" value={h.editorial.headline} onChange={(e) => set("editorial", { ...h.editorial, headline: e.target.value })} />
+          </div>
+        </Card>
+        <Card title="H · A closer look at the details">
+          <div className="grid grid-cols-3 gap-3">
+            {h.details.items.map((it, i) => (
+              <div key={i} className="space-y-2">
+                <ImagePick label={`Detail ${i + 1}`} id={it.imageId} onChange={(v) => set("details", { ...h.details, items: h.details.items.map((x, k) => (k === i ? { ...x, imageId: v } : x)) })} />
+                <AInput aria-label="Detail title" value={it.title} onChange={(e) => set("details", { ...h.details, items: h.details.items.map((x, k) => (k === i ? { ...x, title: e.target.value } : x)) })} />
+              </div>
+            ))}
+          </div>
+        </Card>
+        <Card title="Featured occasions">
+          <div className="flex flex-wrap gap-2">{collections.filter((c) => c.occasionId).map((c) => {
+            const on = h.featuredCollectionIds.includes(c.id);
+            return <button key={c.id} type="button" aria-pressed={on} onClick={() => set("featuredCollectionIds", on ? h.featuredCollectionIds.filter((x) => x !== c.id) : [...h.featuredCollectionIds, c.id].slice(0, 3))} className={`rounded-full border px-3 py-1 text-[12px] ${on ? "border-charcoal bg-charcoal text-ivory" : "border-line bg-white"}`}>{c.name}</button>;
+          })}</div>
+        </Card>
+        <Card title="F · Story & quote">
+          <div className="space-y-3">
+            <ImagePick label="Story image" id={h.story.imageId} onChange={(v) => set("story", { ...h.story, imageId: v })} />
+            <AInput label="Story headline" value={h.story.headline} onChange={(e) => set("story", { ...h.story, headline: e.target.value })} />
+            <ATextarea label="Story body" value={h.story.body} onChange={(e) => set("story", { ...h.story, body: e.target.value })} />
+            <ATextarea label="Customer quote" value={h.quote.text} onChange={(e) => set("quote", { ...h.quote, text: e.target.value })} className="min-h-16" />
           </div>
         </Card>
       </fieldset>
@@ -69,7 +142,7 @@ export function ContentView() {
 /* ───────────── Media ───────────── */
 
 export function MediaView() {
-  const { media, can } = useAdmin();
+  const { media, products, can } = useAdmin();
   const [folder, setFolder] = useState<"all" | "products" | "campaigns">("all");
   const [sel, setSel] = useState<string | null>(null);
   if (!can("content.view")) return <NoAccess perm="content.view" />;
@@ -77,21 +150,26 @@ export function MediaView() {
   const active = media.find((m) => m.id === sel);
   return (
     <>
-      <PageHeader title="Media library" description={`${media.length} assets · Supabase Storage in Phase 2`} actions={<Gate perm="content.create"><AButton variant="outline" title="Uploads connect in Phase 2">Upload</AButton></Gate>} />
+      <PageHeader title="Media library" description={`${media.length} assets · licensed sample photography (Pexels) · Supabase Storage in Phase 2`} actions={<Gate perm="content.create"><AButton variant="outline" title="Uploads connect in Phase 2">Upload</AButton></Gate>} />
       <Tabs value={folder} onChange={setFolder} tabs={[{ id: "all", label: "All", count: media.length }, { id: "products", label: "Products", count: media.filter((m) => m.folder === "products").length }, { id: "campaigns", label: "Campaigns", count: media.filter((m) => m.folder === "campaigns").length }]} />
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
         {list.map((m) => (
           <li key={m.id}>
             <button onClick={() => setSel(m.id)} className="block w-full text-left">
-              <EditorialImage image={m} className="aspect-[4/5] rounded-[2px]" sizes="140px" />
-              <p className="mt-1 truncate text-[11.5px]">{m.filename}</p>
-              <p className="text-[10.5px] text-charcoal/50">{m.sizeKb} KB</p>
+              <EditorialImage image={m} className="aspect-[3/4] rounded-[2px]" sizes="140px" />
+              <p className="mt-1 truncate text-[11.5px]">{m.productId ? products.find((p) => p.id === m.productId)?.name : m.folder}</p>
+              <p className="truncate text-[10.5px] text-charcoal/50">{m.credit ? `${m.credit.source} · ${m.credit.photographer}` : m.filename}</p>
             </button>
           </li>
         ))}
       </ul>
       <Modal open={!!active} onClose={() => setSel(null)} title={active?.filename ?? ""}>
-        {active && <><EditorialImage image={active} className="mx-auto aspect-[4/5] w-56 rounded-[2px]" sizes="224px" /><AInput label="Alt text (for accessibility & SEO)" defaultValue={active.alt} /><p className="text-[12px] text-charcoal/55">{active.folder} · {active.sizeKb} KB · uploaded {formatDate(active.uploadedAt)}</p></>}
+        {active && <>
+          <EditorialImage image={active} className="mx-auto aspect-[3/4] w-56 rounded-[2px]" sizes="224px" />
+          <AInput label="Alt text (for accessibility & SEO)" defaultValue={active.alt} />
+          <p className="text-[12px] text-charcoal/55">Asset id <code className="rounded bg-beige px-1">{active.id}</code> · {active.folder}{active.productId ? ` · ${products.find((p) => p.id === active.productId)?.name}` : ""}</p>
+          {active.credit && <p className="rounded-[3px] bg-[#f3e6cf] px-3 py-2 text-[12px] text-[#6b5126]">Sample photography — {active.credit.license}. Photo by <a className="underline" href={active.credit.photographerUrl} target="_blank" rel="noreferrer">{active.credit.photographer}</a> on <a className="underline" href={active.credit.sourceUrl} target="_blank" rel="noreferrer">{active.credit.source}</a>. Replace with Nargis &amp; Shaz photography before launch.</p>}
+        </>}
       </Modal>
     </>
   );

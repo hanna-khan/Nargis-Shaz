@@ -7,6 +7,12 @@ export const site = {
   locale: "en_PK",
   twitter: "@nargisandshaz",
   instagram: "https://www.instagram.com/nargisandshaz",
+  /** Confirm these handles before launch. */
+  social: [
+    { name: "Instagram", url: "https://www.instagram.com/nargisandshaz" },
+    { name: "Facebook", url: "https://www.facebook.com/nargisandshaz" },
+    { name: "Pinterest", url: "https://www.pinterest.com/nargisandshaz" },
+  ],
   email: "care@nargisandshaz.com",
   phone: "+92 42 111 627 742",
   address: { street: "21 MM Alam Road, Gulberg III", city: "Lahore", region: "Punjab", postalCode: "54660", country: "PK" },

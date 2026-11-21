@@ -1,6 +1,8 @@
 # Nargis & Shaz — storefront & studio (Phase 1)
 
-Next.js 16 (App Router, Cache Components) · React 19.3 · TypeScript · Tailwind CSS 4 · Framer Motion · React Three Fiber.
+Next.js 16 (App Router, Cache Components) · React 19.3 · TypeScript · Tailwind CSS 4 · Framer Motion.
+
+**Identity — Theme 4 · European Couture:** off-white `#F4F1EA`, deep chocolate `#2E1F1A`, muted bronze `#9E7B56`; Bodoni Moda (Didone) + Jost; NS monogram, NARGIS & SHAZ wordmark, DESIGNER LABEL (`src/components/brand/logo.tsx`).
 
 ```bash
 npm install
@@ -12,8 +14,8 @@ Optional env: `NEXT_PUBLIC_SITE_URL` (canonical URLs, sitemap; defaults to https
 
 ## What's here
 
-**Storefront** — `/`, `/shop`, `/new-arrivals`, `/workwear`, `/everyday`, `/evening`, `/festive`, `/collections/[slug]`, `/products/[slug]`, `/our-story`, `/search`, `/wishlist`, `/cart`, `/checkout`.
-Mega menu, mobile drawer, search overlay, URL-driven filters & sorting, colour/size variants with stock, wishlist, bag drawer, market/currency switcher (PKR · GBP · EUR · USD), country-aware checkout with server-side totals, COD and online payment methods per market.
+**Storefront** — `/`, `/shop`, `/shop/[category]` (dresses, tops, trousers, skirts, co-ords, knitwear, blazers-coats, festive-sets; short URLs like `/dresses` redirect), `/new-arrivals` (`/new-in` redirects), `/workwear`, `/everyday`, `/evening`, `/festive`, `/collections/[slug]`, `/products/[slug]`, `/our-story`, `/customer-care`, `/legal/[privacy|terms|shipping|returns]`, `/account`, `/search`, `/wishlist`, `/cart`, `/checkout`.
+Image mega menu (hover intent, keyboard, touch), mobile sheet menu, search overlay, URL-driven filters (category, size, colour, price band per currency, availability) + sorting + grid density, product cards with same-shoot hover image, quick add and mobile size sheet, PDP gallery with full-screen zoom, size guide, quantity, sticky buy bar, complete the look / you may also like / recently viewed, wishlist, bag drawer, market/currency switcher (PKR · GBP · EUR · USD), country-aware checkout with server-side totals, COD and online payment methods per market, server-validated newsletter.
 
 **Studio (admin)** — `/admin` plus products (list/new/edit), categories, collections, inventory, orders (list/detail), customers, discounts, media, homepage content, team & roles, audit log, settings (markets & shipping, payment providers, tax). Runs on local state in clearly labelled *preview mode*; use **Preview as** to see each role's permissions.
 
@@ -43,4 +45,6 @@ See `docs/ARCHITECTURE.md` for the Phase 2 (Supabase, auth, payments) plan.
 
 ## Photography
 
-Imagery is art-directed illustration until the campaign shoot is ready. Add a `src` to any `ProductImage` (or upload to Supabase Storage in Phase 2) and `EditorialImage` switches to `next/image` automatically. The previous static prototype is kept in `_prototype-static/`.
+All photographs are **licensed sample imagery from Pexels**, served from the Pexels CDN — they are not Nargis & Shaz product photography and must be replaced before launch. Every product uses one photographer's single shoot so hover/alternate images show the same garment. Sources, photographers and licence notes: `docs/IMAGE-CREDITS.md`; mapping: `src/data/photography.ts`. Images need an internet connection to display.
+
+The previous static prototype is kept in `_prototype-static/`.

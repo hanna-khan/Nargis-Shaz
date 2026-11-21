@@ -8,6 +8,8 @@ export function applyCatalogFilter(products: Product[], f: CatalogFilter, curren
     if (f.occasionIds?.length && !f.occasionIds.some((o) => p.occasionIds.includes(o))) return false;
     if (f.collectionId && !p.collectionIds.includes(f.collectionId)) return false;
     if (f.newOnly && !p.isNew) return false;
+    if (f.inStockOnly && !p.variants.some((v) => v.stock > 0)) return false;
+    if (f.priceRange && (p.prices[currency] < f.priceRange[0] || p.prices[currency] > f.priceRange[1])) return false;
     if (f.colours?.length && !p.colours.some((c) => f.colours!.includes(baseColour(c.name)))) return false;
     if (f.sizes?.length && !p.variants.some((v) => f.sizes!.includes(v.size) && v.stock > 0)) return false;
     if (q) {
@@ -23,6 +25,8 @@ export function applyCatalogFilter(products: Product[], f: CatalogFilter, curren
       return list.sort((a, b) => a.prices[currency] - b.prices[currency]);
     case "price-desc":
       return list.sort((a, b) => b.prices[currency] - a.prices[currency]);
+    case "bestselling":
+      return list.sort((a, b) => (b.stats?.unitsSold30d ?? 0) - (a.stats?.unitsSold30d ?? 0));
     default:
       return list.sort((a, b) => Number(b.isNew) - Number(a.isNew));
   }

@@ -16,6 +16,7 @@ export interface CatalogRepository {
   getProductsByIds(ids: string[]): Promise<Product[]>;
   listCategories(): Promise<Category[]>;
   listCollections(opts?: { includeDrafts?: boolean }): Promise<Collection[]>;
+  getCategoryBySlug(slug: string): Promise<Category | null>;
   getCollectionBySlug(slug: string): Promise<Collection | null>;
 }
 

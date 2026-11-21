@@ -2,27 +2,27 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { Drawer } from "@/components/ui/drawer";
 import { useShop } from "../shop-context";
-import type { OccasionId, SortKey } from "@/types";
+import { ProductCard } from "./product-card";
+import type { CardProduct } from "./card-data";
+import type { CurrencyCode, SortKey } from "@/types";
 
-/** Minimal facts needed to filter/sort a card client-side. Cards themselves are server-rendered. */
-export interface CardFacts {
-  id: string;
+/** Facts used for client-side filtering (cards are rendered from the same data). */
+export interface CatalogItem {
+  card: CardProduct;
   categoryId: string;
-  occasionIds: OccasionId[];
   colours: string[];
-  sizes: string[]; // in stock
-  isNew: boolean;
+  sizesInStock: string[];
+  inStock: boolean;
   createdAt: string;
-  prices: Record<string, number>;
-  text: string;
+  unitsSold: number;
 }
 
 export interface FacetOptions {
   categories: { id: string; name: string }[];
-  occasions: { id: OccasionId; name: string }[];
   colours: { name: string; hex: string }[];
   sizes: string[];
 }
@@ -34,127 +34,212 @@ const SORTS: { id: SortKey; label: string }[] = [
   { id: "price-desc", label: "Price: high to low" },
 ];
 
+/** Price bands per currency, in major units. Only bands containing products are offered. */
+const BANDS: Record<CurrencyCode, number[]> = { PKR: [10000, 20000, 40000], USD: [100, 200, 400], GBP: [80, 160, 320], EUR: [90, 180, 360] };
+function bandsFor(currency: CurrencyCode) {
+  const t = BANDS[currency].map((x) => x * 100);
+  return [
+    { id: "1", min: 0, max: t[0] - 1 },
+    { id: "2", min: t[0], max: t[1] - 1 },
+    { id: "3", min: t[1], max: t[2] - 1 },
+    { id: "4", min: t[2], max: Number.MAX_SAFE_INTEGER },
+  ];
+}
+
 /**
- * Filters & sorting kept in the URL (shareable, crawlable canonical stays clean).
- * Rendered inside <Suspense>; the fallback is the full server-rendered grid.
+ * Filters & sorting live in the URL (shareable; canonical stays clean).
+ * Rendered inside <Suspense>; the server fallback is the full, unfiltered grid.
  */
-export function CatalogBrowser({ facts, cards, facets, editorial, hideFacets = [] }: { facts: CardFacts[]; cards: Record<string, ReactNode>; facets: FacetOptions; editorial?: ReactNode; hideFacets?: ("category" | "occasion")[] }) {
+export function CatalogBrowser({ items, facets, hideCategory, editorial }: { items: CatalogItem[]; facets: FacetOptions; hideCategory?: boolean; editorial?: React.ReactNode }) {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { currency } = useShop();
-  const [panel, setPanel] = useState(false);
+  const { currency, format } = useShop();
+  const [drawer, setDrawer] = useState(false);
 
-  const get = (k: string) => params.get(k)?.split(",").filter(Boolean) ?? [];
-  const sel = { category: get("category"), occasion: get("occasion"), colour: get("colour"), size: get("size") };
+  const list = (k: string) => params.get(k)?.split(",").filter(Boolean) ?? [];
+  const sel = { category: list("category"), colour: list("colour"), size: list("size"), price: list("price") };
+  const inStock = params.get("stock") === "1";
   const sort = (params.get("sort") as SortKey) || "featured";
+  const dense = params.get("view") !== "large";
+  const bands = bandsFor(currency);
 
-  const set = (key: string, values: string[]) => {
-    const next = new URLSearchParams(params.toString());
-    if (values.length) next.set(key, values.join(",")); else next.delete(key);
-    router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
-  };
+  const replace = (next: URLSearchParams) => router.replace(`${pathname}${next.toString() ? `?${next}` : ""}`, { scroll: false });
+  const set = (key: string, values: string[]) => { const next = new URLSearchParams(params.toString()); if (values.length) next.set(key, values.join(",")); else next.delete(key); replace(next); };
   const toggle = (key: keyof typeof sel, v: string) => set(key, sel[key].includes(v) ? sel[key].filter((x) => x !== v) : [...sel[key], v]);
+  const clearAll = () => { const next = new URLSearchParams(); if (params.get("sort")) next.set("sort", params.get("sort")!); if (params.get("view")) next.set("view", params.get("view")!); replace(next); };
+
+  const matches = (it: CatalogItem, skip?: keyof typeof sel | "stock") =>
+    (skip === "category" || !sel.category.length || sel.category.includes(it.categoryId)) &&
+    (skip === "colour" || !sel.colour.length || it.colours.some((c) => sel.colour.includes(c))) &&
+    (skip === "size" || !sel.size.length || it.sizesInStock.some((s) => sel.size.includes(s))) &&
+    (skip === "price" || !sel.price.length || sel.price.some((b) => { const band = bands.find((x) => x.id === b); return band && it.card.prices[currency] >= band.min && it.card.prices[currency] <= band.max; })) &&
+    (skip === "stock" || !inStock || it.inStock);
 
   const key = params.toString();
   const visible = useMemo(() => {
-    const list = facts.filter((f) =>
-      (!sel.category.length || sel.category.includes(f.categoryId)) &&
-      (!sel.occasion.length || f.occasionIds.some((o) => sel.occasion.includes(o))) &&
-      (!sel.colour.length || f.colours.some((c) => sel.colour.includes(c))) &&
-      (!sel.size.length || f.sizes.some((s) => sel.size.includes(s))));
-    const by = { newest: (a: CardFacts, b: CardFacts) => b.createdAt.localeCompare(a.createdAt), "price-asc": (a: CardFacts, b: CardFacts) => a.prices[currency] - b.prices[currency], "price-desc": (a: CardFacts, b: CardFacts) => b.prices[currency] - a.prices[currency], featured: () => 0 };
-    return [...list].sort(by[sort]);
-  }, [facts, key, currency]); // eslint-disable-line react-hooks/exhaustive-deps
+    const out = items.filter((it) => matches(it));
+    const by: Record<SortKey, (a: CatalogItem, b: CatalogItem) => number> = {
+      featured: () => 0,
+      newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
+      "price-asc": (a, b) => a.card.prices[currency] - b.card.prices[currency],
+      "price-desc": (a, b) => b.card.prices[currency] - a.card.prices[currency],
+      bestselling: (a, b) => b.unitsSold - a.unitsSold,
+    };
+    return [...out].sort(by[sort] ?? by.featured);
+  }, [items, key, currency]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeCount = sel.category.length + sel.occasion.length + sel.colour.length + sel.size.length;
-  const chipGroups = [
-    !hideFacets.includes("occasion") && { key: "occasion" as const, items: facets.occasions.map((o) => ({ id: o.id, label: o.name })) },
-    !hideFacets.includes("category") && { key: "category" as const, items: facets.categories.map((c) => ({ id: c.id, label: c.name })) },
-  ].filter(Boolean) as { key: "occasion" | "category"; items: { id: string; label: string }[] }[];
+  const count = (fn: (it: CatalogItem) => boolean, skip: keyof typeof sel | "stock") => items.filter((it) => matches(it, skip) && fn(it)).length;
+  const priceLabel = (b: (typeof bands)[number], i: number) => (i === 0 ? `Under ${format(b.max + 1)}` : i === bands.length - 1 ? `${format(b.min)} and above` : `${format(b.min)} – ${format(b.max + 1)}`);
+  const activeChips = [
+    ...sel.category.map((v) => ({ k: "category" as const, v, label: facets.categories.find((c) => c.id === v)?.name ?? v })),
+    ...sel.colour.map((v) => ({ k: "colour" as const, v, label: v })),
+    ...sel.size.map((v) => ({ k: "size" as const, v, label: `Size ${v}` })),
+    ...sel.price.map((v) => ({ k: "price" as const, v, label: priceLabel(bands.find((b) => b.id === v)!, bands.findIndex((b) => b.id === v)) })),
+  ];
+  const activeCount = activeChips.length + (inStock ? 1 : 0);
+  const grid = dense ? "grid-cols-2 md:grid-cols-3 xl:grid-cols-4" : "grid-cols-1 sm:grid-cols-2 xl:grid-cols-3";
+
+  const cards = visible.map((it, i) => (
+    <motion.li key={it.card.id} layout="position" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 0.8, 0.24, 1], delay: Math.min(i, 8) * 0.04 }}>
+      <ProductCard product={it.card} priority={i < 4} sizes={dense ? "(max-width:768px) 50vw, (max-width:1280px) 33vw, 25vw" : "(max-width:640px) 100vw, (max-width:1280px) 50vw, 33vw"} />
+    </motion.li>
+  ));
+  if (editorial && activeCount === 0 && sort === "featured" && cards.length > 6) {
+    cards.splice(dense ? 6 : 4, 0, <li key="editorial" className={dense ? "col-span-2" : "col-span-1 sm:col-span-2 xl:col-span-1"}>{editorial}</li>);
+  }
 
   return (
     <>
-      <div className="sticky top-[68px] z-20 border-y border-line bg-paper/95 backdrop-blur-md max-md:top-[58px]">
-        <div className="flex items-center gap-4 px-[clamp(18px,3.2vw,48px)] py-3.5">
-          <div className="no-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto">
-            {chipGroups.flatMap((g) => g.items.map((it) => (
-              <button key={g.key + it.id} onClick={() => toggle(g.key, it.id)} aria-pressed={sel[g.key].includes(it.id)}
-                className={cn("rounded-full border px-4 py-2 text-[10.5px] tracking-[0.16em] whitespace-nowrap uppercase transition-colors", sel[g.key].includes(it.id) ? "border-charcoal bg-charcoal text-ivory" : "border-line hover:border-charcoal")}>
-                {it.label}
-              </button>
-            )))}
-          </div>
-          <button onClick={() => setPanel((v) => !v)} aria-expanded={panel} className="shrink-0 text-[11px] tracking-[0.18em] uppercase">
-            Filter{activeCount ? ` (${activeCount})` : ""}
+      <div className="sticky top-16 z-30 border-y border-line bg-offwhite/95 backdrop-blur-md max-xl:top-[58px]">
+        <div className="gutter flex h-14 items-center gap-5">
+          <button onClick={() => setDrawer(true)} className="flex items-center gap-2.5 text-[11px] tracking-[0.2em] uppercase" aria-haspopup="dialog">
+            <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden><path d="M0 2h16M0 10h16" stroke="currentColor" strokeWidth="1" /><circle cx="5" cy="2" r="1.8" fill="var(--color-offwhite)" stroke="currentColor" /><circle cx="11" cy="10" r="1.8" fill="var(--color-offwhite)" stroke="currentColor" /></svg>
+            Filter &amp; sort{activeCount ? <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-chocolate px-1 text-[10px] tracking-normal text-offwhite">{activeCount}</span> : null}
           </button>
-          <label className="shrink-0 text-[11px] tracking-[0.18em] uppercase max-sm:hidden">
-            <span className="sr-only">Sort by</span>
-            <select value={sort} onChange={(e) => set("sort", e.target.value === "featured" ? [] : [e.target.value])} className="cursor-pointer bg-transparent uppercase outline-none">
-              {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
-          </label>
-        </div>
-        <AnimatePresence initial={false}>
-          {panel && (
-            <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} transition={{ duration: 0.45, ease: [0.22, 0.8, 0.24, 1] }} className="overflow-hidden border-t border-line">
-              <div className="grid gap-8 px-[clamp(18px,3.2vw,48px)] py-7 md:grid-cols-[1fr_1fr_auto]">
-                <fieldset>
-                  <legend className="eyebrow mb-3">Colour</legend>
-                  <div className="flex flex-wrap gap-2">
-                    {facets.colours.map((c) => (
-                      <button key={c.name} onClick={() => toggle("colour", c.name)} aria-pressed={sel.colour.includes(c.name)} className={cn("flex items-center gap-2 rounded-full border py-1.5 pr-3.5 pl-1.5 text-[12.5px]", sel.colour.includes(c.name) ? "border-charcoal" : "border-line")}>
-                        <span className="h-5 w-5 rounded-full border border-black/10" style={{ background: c.hex }} />{c.name}
-                      </button>
-                    ))}
-                  </div>
-                </fieldset>
-                <fieldset>
-                  <legend className="eyebrow mb-3">Size in stock</legend>
-                  <div className="flex flex-wrap gap-2">
-                    {facets.sizes.map((s) => (
-                      <button key={s} onClick={() => toggle("size", s)} aria-pressed={sel.size.includes(s)} className={cn("min-w-12 border px-3 py-2 text-[12.5px]", sel.size.includes(s) ? "border-charcoal bg-charcoal text-ivory" : "border-line")}>{s}</button>
-                    ))}
-                  </div>
-                </fieldset>
-                <div className="flex items-end gap-5">
-                  <label className="sm:hidden text-[11px] tracking-[0.18em] uppercase">
-                    <span className="sr-only">Sort by</span>
-                    <select value={sort} onChange={(e) => set("sort", e.target.value === "featured" ? [] : [e.target.value])} className="border border-line bg-transparent px-3 py-2 uppercase">
-                      {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
-                    </select>
-                  </label>
-                  {activeCount > 0 && <button onClick={() => router.replace(pathname, { scroll: false })} className="ulink">Clear all</button>}
-                </div>
-              </div>
-            </motion.div>
+          {!hideCategory && (
+            <div className="no-scrollbar hidden min-w-0 flex-1 items-center gap-6 overflow-x-auto md:flex">
+              {facets.categories.map((c) => (
+                <button key={c.id} onClick={() => toggle("category", c.id)} aria-pressed={sel.category.includes(c.id)} className={cn("hairline shrink-0 py-1 text-[11px] tracking-[0.16em] whitespace-nowrap uppercase", sel.category.includes(c.id) ? "!bg-[length:100%_1px] text-chocolate" : "text-taupe hover:text-chocolate")}>{c.name}</button>
+              ))}
+            </div>
           )}
-        </AnimatePresence>
+          <div className="ml-auto flex shrink-0 items-center gap-5">
+            <p className="text-[11px] tracking-[0.16em] text-taupe uppercase" aria-live="polite">{visible.length} {visible.length === 1 ? "piece" : "pieces"}</p>
+            <div className="hidden items-center gap-1 sm:flex" role="group" aria-label="Grid density">
+              {[["small", true], ["large", false]].map(([id, d]) => (
+                <button key={String(id)} onClick={() => set("view", d ? [] : ["large"])} aria-pressed={dense === d} aria-label={d ? "Show more products per row" : "Show larger images"} className={cn("p-1.5", dense === d ? "text-chocolate" : "text-taupe/60 hover:text-chocolate")}>
+                  {d ? <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden><g fill="currentColor">{[0, 5, 10].flatMap((x) => [0, 5, 10].map((y) => <rect key={`${x}${y}`} x={x} y={y} width="4" height="4" />))}</g></svg>
+                    : <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden><g fill="currentColor"><rect width="6" height="14" /><rect x="8" width="6" height="14" /></g></svg>}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        {activeChips.length > 0 || inStock ? (
+          <div className="gutter no-scrollbar flex items-center gap-2 overflow-x-auto pb-3">
+            {activeChips.map((c) => (
+              <button key={c.k + c.v} onClick={() => toggle(c.k, c.v)} className="flex shrink-0 items-center gap-2 border border-line bg-porcelain px-3 py-1.5 text-[12px]" aria-label={`Remove filter ${c.label}`}>{c.label}<span aria-hidden>×</span></button>
+            ))}
+            {inStock && <button onClick={() => set("stock", [])} className="flex shrink-0 items-center gap-2 border border-line bg-porcelain px-3 py-1.5 text-[12px]" aria-label="Remove filter In stock">In stock<span aria-hidden>×</span></button>}
+            <button onClick={clearAll} className="ulink ml-2 shrink-0">Clear all</button>
+          </div>
+        ) : null}
       </div>
-      <p className="px-[clamp(18px,3.2vw,48px)] pt-6 text-[11px] tracking-[0.16em] text-charcoal/55 uppercase" aria-live="polite">{visible.length} piece{visible.length === 1 ? "" : "s"}</p>
-      <CardGrid ids={visible.map((v) => v.id)} cards={cards} editorial={activeCount === 0 && sort === "featured" ? editorial : undefined} />
-      {visible.length === 0 && <p className="py-24 text-center text-charcoal/60">No pieces match these filters. <button className="ulink ml-2" onClick={() => router.replace(pathname, { scroll: false })}>Clear filters</button></p>}
+
+      <ul className={cn("gutter grid gap-x-[clamp(8px,1.4vw,24px)] gap-y-[clamp(32px,3.4vw,56px)] pt-8 pb-24 max-md:gap-x-1.5 max-md:px-1.5", grid)}>{cards}</ul>
+      {visible.length === 0 && (
+        <div className="gutter py-28 text-center">
+          <p className="font-serif text-[26px]">Nothing matches just yet</p>
+          <p className="mt-2 mb-6 text-taupe">Try removing a filter to see more of the collection.</p>
+          <button onClick={clearAll} className="ulink">Clear all filters</button>
+        </div>
+      )}
+
+      <Drawer open={drawer} onClose={() => setDrawer(false)} title="Filter & sort"
+        footer={
+          <div className="grid grid-cols-2 gap-3 border-t border-line p-5">
+            <button onClick={clearAll} className="min-h-12 border border-chocolate text-[11px] tracking-[0.2em] uppercase" disabled={!activeCount}>Clear all</button>
+            <button onClick={() => setDrawer(false)} className="min-h-12 bg-chocolate text-[11px] tracking-[0.2em] text-offwhite uppercase">Show {visible.length} {visible.length === 1 ? "piece" : "pieces"}</button>
+          </div>
+        }>
+        <div className="divide-y divide-line px-6">
+          <Section title="Sort by" open>
+            <div className="grid gap-1" role="radiogroup" aria-label="Sort by">
+              {SORTS.map((s) => (
+                <label key={s.id} className="flex min-h-10 cursor-pointer items-center gap-3 text-[14px]">
+                  <input type="radio" name="sort" checked={sort === s.id} onChange={() => set("sort", s.id === "featured" ? [] : [s.id])} className="h-4 w-4 accent-chocolate" />{s.label}
+                </label>
+              ))}
+            </div>
+          </Section>
+          {facets.categories.length > 1 && (
+            <Section title="Category" open>
+              {facets.categories.map((c) => <Check key={c.id} label={c.name} n={count((it) => it.categoryId === c.id, "category")} checked={sel.category.includes(c.id)} onChange={() => toggle("category", c.id)} />)}
+            </Section>
+          )}
+          <Section title="Size" open>
+            <div className="grid grid-cols-4 gap-2">
+              {facets.sizes.map((s) => {
+                const n = count((it) => it.sizesInStock.includes(s), "size");
+                return <button key={s} onClick={() => toggle("size", s)} disabled={!n && !sel.size.includes(s)} aria-pressed={sel.size.includes(s)} className={cn("min-h-11 border text-[13px] disabled:text-taupe/40", sel.size.includes(s) ? "border-chocolate bg-chocolate text-offwhite" : "border-line hover:border-chocolate")}>{s}</button>;
+              })}
+            </div>
+          </Section>
+          <Section title="Colour">
+            <div className="grid grid-cols-2 gap-x-4">
+              {facets.colours.map((c) => (
+                <Check key={c.name} label={<span className="flex items-center gap-2.5"><span className="h-4 w-4 rounded-full border border-chocolate/15" style={{ background: c.hex }} />{c.name}</span>} n={count((it) => it.colours.includes(c.name), "colour")} checked={sel.colour.includes(c.name)} onChange={() => toggle("colour", c.name)} />
+              ))}
+            </div>
+          </Section>
+          <Section title="Price">
+            {bands.map((b, i) => {
+              const n = count((it) => it.card.prices[currency] >= b.min && it.card.prices[currency] <= b.max, "price");
+              return n || sel.price.includes(b.id) ? <Check key={b.id} label={priceLabel(b, i)} n={n} checked={sel.price.includes(b.id)} onChange={() => toggle("price", b.id)} /> : null;
+            })}
+          </Section>
+          <Section title="Availability" open>
+            <Check label="In stock now" n={count((it) => it.inStock, "stock")} checked={inStock} onChange={() => set("stock", inStock ? [] : ["1"])} />
+          </Section>
+        </div>
+      </Drawer>
     </>
   );
 }
 
-export function CardGrid({ ids, cards, editorial }: { ids: string[]; cards: Record<string, ReactNode>; editorial?: ReactNode }) {
-  const items: ReactNode[] = ids.map((id) => (
-    <motion.li key={id} layout="position" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 0.8, 0.24, 1] }}>{cards[id]}</motion.li>
-  ));
-  if (editorial && items.length > 4) items.splice(4, 0, <li key="editorial" className="col-span-2 row-span-2 max-md:row-span-1">{editorial}</li>);
-  return <ul className="grid grid-cols-2 gap-x-[clamp(12px,1.6vw,26px)] gap-y-[clamp(30px,3vw,48px)] px-[clamp(18px,3.2vw,48px)] pt-6 pb-24 md:grid-cols-3 xl:grid-cols-4">{items}</ul>;
+function Section({ title, children, open }: { title: string; children: React.ReactNode; open?: boolean }) {
+  const [o, setO] = useState(!!open);
+  return (
+    <div className="py-4">
+      <button onClick={() => setO(!o)} aria-expanded={o} className="flex w-full items-center justify-between py-1 text-[11px] tracking-[0.22em] uppercase">
+        {title}<span aria-hidden className={cn("text-lg font-extralight transition-transform", o && "rotate-45")}>+</span>
+      </button>
+      <AnimatePresence initial={false}>
+        {o && <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.35 }} className="overflow-hidden"><div className="pt-3 pb-1">{children}</div></motion.div>}
+      </AnimatePresence>
+    </div>
+  );
 }
 
-/** Static fallback used for SSR / before search params are available. */
-export function StaticCardGrid({ ids, cards, editorial }: { ids: string[]; cards: Record<string, ReactNode>; editorial?: ReactNode }) {
-  const items: ReactNode[] = ids.map((id) => <li key={id}>{cards[id]}</li>);
-  if (editorial && items.length > 4) items.splice(4, 0, <li key="editorial" className="col-span-2 row-span-2 max-md:row-span-1">{editorial}</li>);
+function Check({ label, n, checked, onChange }: { label: React.ReactNode; n: number; checked: boolean; onChange: () => void }) {
+  return (
+    <label className={cn("flex min-h-10 cursor-pointer items-center gap-3 text-[14px]", !n && !checked && "opacity-40")}>
+      <input type="checkbox" checked={checked} onChange={onChange} disabled={!n && !checked} className="h-4 w-4 accent-chocolate" />
+      <span className="flex-1">{label}</span>
+      <span className="text-[12px] text-taupe">{n}</span>
+    </label>
+  );
+}
+
+/** Server/fallback grid (before search params are available). */
+export function StaticGrid({ items }: { items: CatalogItem[] }) {
   return (
     <>
-      <div className="h-[62px] border-y border-line" />
-      <p className="px-[clamp(18px,3.2vw,48px)] pt-6 text-[11px] tracking-[0.16em] text-charcoal/55 uppercase">{ids.length} pieces</p>
-      <ul className="grid grid-cols-2 gap-x-[clamp(12px,1.6vw,26px)] gap-y-[clamp(30px,3vw,48px)] px-[clamp(18px,3.2vw,48px)] pt-6 pb-24 md:grid-cols-3 xl:grid-cols-4">{items}</ul>
+      <div className="h-14 border-y border-line" />
+      <ul className="gutter grid grid-cols-2 gap-x-[clamp(8px,1.4vw,24px)] gap-y-[clamp(32px,3.4vw,56px)] pt-8 pb-24 max-md:gap-x-1.5 max-md:px-1.5 md:grid-cols-3 xl:grid-cols-4">
+        {items.map((it, i) => <li key={it.card.id}><ProductCard product={it.card} priority={i < 4} /></li>)}
+      </ul>
     </>
   );
 }

@@ -1,38 +1,40 @@
-import { ButtonLink } from "@/components/ui/button";
-import { Tilt } from "@/components/ui/parallax";
+import Link from "next/link";
+import { getImageProps } from "next/image";
 import { Emph } from "@/components/ui/typography";
-import { EditorialImage } from "@/components/media/editorial-image";
-import { SilkBackdrop } from "../silk/silk-backdrop";
 import type { HomepageContent, ProductImage } from "@/types";
 
-/** Campaign hero. Entrance uses CSS keyframes (no JS needed for first paint). */
-export function Hero({ content, frames }: { content: HomepageContent["hero"]; frames: [ProductImage, ProductImage] }) {
+/**
+ * Campaign hero: full-bleed photograph with art direction (landscape crop on desktop,
+ * portrait crop on mobile) via <picture>, so only one image is downloaded.
+ * Copy enters with CSS keyframes — no JavaScript needed for first paint (LCP-safe).
+ */
+export function Hero({ content, wide, portrait }: { content: HomepageContent["hero"]; wide: ProductImage; portrait: ProductImage }) {
+  const common = { alt: wide.alt, sizes: "100vw" };
+  const { props: { srcSet: desktop } } = getImageProps({ ...common, src: wide.src!, width: 2400, height: 1600 });
+  const { props: { srcSet: mobile, ...rest } } = getImageProps({ ...common, src: portrait.src!, width: 1000, height: 1500, loading: "eager", fetchPriority: "high" });
+
   return (
-    <section className="relative grid min-h-[100svh] items-end overflow-hidden bg-mocha text-ivory" aria-labelledby="hero-title">
-      <SilkBackdrop palette={["#7d6552", "#c7b49d", "#f5ecdf"]} gradient="radial-gradient(120% 90% at 70% 20%, #E7DCCB, #C7B49D 50%, #9A8069)" />
-      <div className="relative z-10 grid w-full items-end gap-10 px-[clamp(18px,3.2vw,48px)] pt-[150px] pb-[clamp(40px,6vw,80px)] md:grid-cols-[1.05fr_.95fr]">
-        <div className="max-w-[640px] [&>*]:animate-[rise_1.4s_var(--ease-editorial)_both] [&>*:nth-child(2)]:[animation-delay:.18s] [&>*:nth-child(3)]:[animation-delay:.36s] [&>*:nth-child(4)]:[animation-delay:.52s]">
-          <p className="eyebrow">{content.eyebrow}</p>
-          <h1 id="hero-title" className="display mt-6 mb-8 text-[clamp(52px,8vw,128px)]"><Emph text={content.headline} /></h1>
-          <p className="mb-10 max-w-[430px] text-[16px] opacity-90">{content.body}</p>
-          <div className="flex flex-wrap items-center gap-6">
-            <ButtonLink href={content.primaryCta.href} variant="light">{content.primaryCta.label}</ButtonLink>
-            <ButtonLink href={content.secondaryCta.href} variant="ghost-light" className="!px-0">{content.secondaryCta.label}</ButtonLink>
+    <section className="relative isolate flex min-h-[100svh] items-end overflow-hidden bg-espresso text-offwhite" aria-labelledby="hero-title">
+      <picture className="absolute inset-0 -z-10">
+        <source media="(min-width: 768px)" srcSet={desktop} sizes="100vw" />
+        <img {...rest} srcSet={mobile} alt={wide.alt} className="h-full w-full animate-kenburns object-cover object-[50%_40%]" />
+      </picture>
+      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-chocolate/70 via-chocolate/15 to-chocolate/25 md:bg-gradient-to-r md:from-chocolate/60 md:via-chocolate/10 md:to-transparent" />
+
+      <div className="gutter w-full pt-40 pb-[clamp(44px,7vw,96px)]">
+        <div className="max-w-[620px] [&>*]:animate-rise [&>*:nth-child(2)]:[animation-delay:.15s] [&>*:nth-child(3)]:[animation-delay:.3s] [&>*:nth-child(4)]:[animation-delay:.45s]">
+          <p className="eyebrow text-offwhite/85">{content.eyebrow}</p>
+          <h1 id="hero-title" className="display mt-5 text-[clamp(46px,7vw,112px)] leading-[0.98]"><Emph text={content.headline} /></h1>
+          <p className="mt-6 max-w-[420px] text-[15.5px] leading-relaxed text-offwhite/85">{content.body}</p>
+          <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
+            <Link href={content.primaryCta.href} className="inline-flex min-h-12 items-center border border-offwhite bg-offwhite px-8 text-[11px] tracking-[0.24em] text-chocolate uppercase transition-colors duration-500 hover:bg-transparent hover:text-offwhite">{content.primaryCta.label}</Link>
+            <Link href={content.secondaryCta.href} className="ulink">{content.secondaryCta.label}</Link>
           </div>
         </div>
-        <div className="flex items-end justify-end gap-[18px] max-md:justify-start">
-          <Tilt className="w-[min(34vw,420px)] animate-[rise_1.6s_var(--ease-editorial)_.5s_both] max-md:w-[56vw]">
-            <EditorialImage image={frames[0]} className="arch aspect-[3/4.4] shadow-[0_40px_80px_-40px_rgba(41,39,34,.5)]" priority sizes="(max-width:768px) 56vw, 34vw" />
-          </Tilt>
-          <Tilt className="mb-12 w-[min(18vw,230px)] animate-[rise_1.6s_var(--ease-editorial)_.8s_both] max-md:w-[30vw]">
-            <EditorialImage image={frames[1]} className="arch aspect-[3/4]" sizes="(max-width:768px) 30vw, 18vw" />
-          </Tilt>
-        </div>
       </div>
-      <div className="absolute bottom-5 left-1/2 z-10 flex -translate-x-1/2 flex-col items-center gap-2.5 text-[10px] tracking-[0.3em] uppercase opacity-80 max-md:hidden" aria-hidden>
-        Scroll<span className="h-10 w-px animate-drip bg-current" />
+      <div className="absolute right-[clamp(18px,3.4vw,56px)] bottom-8 hidden flex-col items-center gap-3 text-[10px] tracking-[0.3em] uppercase opacity-80 md:flex" aria-hidden>
+        <span className="[writing-mode:vertical-rl]">Scroll</span><span className="h-12 w-px animate-drip bg-current" />
       </div>
-      <style>{`@keyframes rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}`}</style>
     </section>
   );
 }

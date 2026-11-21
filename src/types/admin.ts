@@ -61,16 +61,32 @@ export interface AuditLogEntry {
 export interface MediaAsset extends ProductImage {
   filename: string;
   folder: "products" | "campaigns" | "editorial";
+  /** Product this frame belongs to, if any. */
+  productId?: string;
   sizeKb: number;
   uploadedAt: string;
 }
 
+export interface Cta { label: string; href: string }
+
+/**
+ * Storefront homepage content. Edited in Studio → Homepage content; every image field
+ * references a media-library asset id so photography can be swapped without code changes.
+ */
 export interface HomepageContent {
   announcement: string;
-  hero: { eyebrow: string; headline: string; body: string; primaryCta: { label: string; href: string }; secondaryCta: { label: string; href: string } };
+  hero: { eyebrow: string; headline: string; body: string; primaryCta: Cta; secondaryCta: Cta; imageId: string; mobileImageId: string };
+  newArrivals: { eyebrow: string; title: string; limit: number };
+  /** Category / collection cards: link target + image. */
+  categoryCards: { title: string; href: string; imageId: string }[];
+  campaign: { eyebrow: string; headline: string; body: string; cta: Cta; imageIds: string[] };
+  bestsellers: { eyebrow: string; title: string; mode: "auto" | "manual"; productIds: string[]; limit: number };
   statement: { eyebrow: string; text: string };
+  /** Asymmetric editorial composition ("The Art of Dressing"). */
+  editorial: { eyebrow: string; headline: string; body: string; imageIds: string[]; cta: Cta };
+  details: { eyebrow: string; headline: string; items: { title: string; body: string; imageId: string }[] };
   featuredCollectionIds: string[];
-  story: { eyebrow: string; headline: string; body: string };
+  story: { eyebrow: string; headline: string; body: string; imageId: string };
   quote: { text: string; attribution: string };
 }
 
