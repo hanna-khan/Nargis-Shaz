@@ -8,7 +8,7 @@ import type { HomepageContent, ProductImage } from "@/types";
  * portrait crop on mobile) via <picture>, so only one image is downloaded.
  * Copy enters with CSS keyframes — no JavaScript needed for first paint (LCP-safe).
  */
-export function Hero({ content, wide, portrait }: { content: HomepageContent["hero"]; wide: ProductImage; portrait: ProductImage }) {
+export function Hero({ content, wide, portrait }: { content: Pick<HomepageContent["hero"], "eyebrow" | "headline" | "body"> & { primaryCta: { label: string; href: string } | null; secondaryCta: { label: string; href: string } | null }; wide: ProductImage; portrait: ProductImage }) {
   const common = { alt: wide.alt, sizes: "100vw" };
   const { props: { srcSet: desktop } } = getImageProps({ ...common, src: wide.src!, width: 2400, height: 1600 });
   const { props: { srcSet: mobile, ...rest } } = getImageProps({ ...common, src: portrait.src!, width: 1000, height: 1500, loading: "eager", fetchPriority: "high" });
@@ -27,8 +27,8 @@ export function Hero({ content, wide, portrait }: { content: HomepageContent["he
           <h1 id="hero-title" className="display mt-5 text-[clamp(46px,7vw,112px)] leading-[0.98]"><Emph text={content.headline} /></h1>
           <p className="mt-6 max-w-[420px] text-[15.5px] leading-relaxed text-offwhite/85">{content.body}</p>
           <div className="mt-9 flex flex-wrap items-center gap-x-8 gap-y-4">
-            <Link href={content.primaryCta.href} className="inline-flex min-h-12 items-center border border-offwhite bg-offwhite px-8 text-[11px] tracking-[0.24em] text-chocolate uppercase transition-colors duration-500 hover:bg-transparent hover:text-offwhite">{content.primaryCta.label}</Link>
-            <Link href={content.secondaryCta.href} className="ulink">{content.secondaryCta.label}</Link>
+            {content.primaryCta && <Link href={content.primaryCta.href} className="inline-flex min-h-12 items-center border border-offwhite bg-offwhite px-8 text-[11px] tracking-[0.24em] text-chocolate uppercase transition-colors duration-500 hover:bg-transparent hover:text-offwhite">{content.primaryCta.label}</Link>}
+            {content.secondaryCta && <Link href={content.secondaryCta.href} className="ulink">{content.secondaryCta.label}</Link>}
           </div>
         </div>
       </div>

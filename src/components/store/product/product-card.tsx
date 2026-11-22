@@ -24,6 +24,7 @@ export function ProductCard({ product: p, priority, sizes = "(max-width: 768px) 
   const [hover, setHover] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [added, setAdded] = useState<string | null>(null);
+  const [cardError, setCardError] = useState("");
   const track = useRef<HTMLDivElement>(null);
   const soldOut = p.sizes.every((s) => s.stock === 0);
   const onSale = !!p.compareAt;
@@ -31,9 +32,11 @@ export function ProductCard({ product: p, priority, sizes = "(max-width: 768px) 
   // On hover the second frame shows; arrows override that.
   const shown = idx !== 0 ? idx : hover && n > 1 ? 1 : 0;
 
-  const quickAdd = (s: CardProduct["sizes"][number]) => {
+  const quickAdd = async (s: CardProduct["sizes"][number]) => {
     if (s.stock < 1) return;
-    addToCart({ productId: p.id, variantId: s.variantId, slug: p.slug, name: p.name, colour: p.colourName, size: s.size, image: p.images[0], prices: p.prices });
+    setCardError("");
+    const r = await addToCart(s.variantId);
+    if (!r.ok) { setCardError(r.error); return; }
     setAdded(s.size);
     setTimeout(() => { setAdded(null); setSheet(false); }, 1400);
   };
@@ -83,7 +86,7 @@ export function ProductCard({ product: p, priority, sizes = "(max-width: 768px) 
         {/* Desktop quick add */}
         {!soldOut && (
           <div className="absolute inset-x-0 bottom-0 hidden translate-y-full bg-offwhite/95 px-3 pt-2.5 pb-3 backdrop-blur-sm transition-transform duration-500 ease-[var(--ease-editorial)] group-hover/card:translate-y-0 group-focus-within/card:translate-y-0 md:block">
-            <p className="mb-1.5 text-center text-[9.5px] tracking-[0.24em] uppercase" aria-live="polite">{added ? `Added — size ${added}` : "Add to bag"}</p>
+            <p className={cn("mb-1.5 text-center text-[9.5px] tracking-[0.24em] uppercase", cardError && "tracking-[0.06em] normal-case text-danger")} aria-live="polite">{cardError || (added ? `Added — size ${added}` : "Add to bag")}</p>
             <div className="flex flex-wrap justify-center gap-x-1 gap-y-0.5" role="group" aria-label={`Quick add ${p.name} — choose a size`}>
               {p.sizes.map((s) => (
                 <button key={s.size} type="button" disabled={s.stock < 1} onClick={() => quickAdd(s)} aria-label={`Add size ${s.size}${s.stock < 1 ? " (sold out)" : ""}`}
@@ -119,7 +122,7 @@ export function ProductCard({ product: p, priority, sizes = "(max-width: 768px) 
                 <div><p className="label text-[14px]">{p.name}</p><Price prices={p.prices} className="text-[13px]" /></div>
                 <button onClick={() => setSheet(false)} aria-label="Close" className="p-2 text-[26px] leading-none font-extralight">×</button>
               </div>
-              <p className="eyebrow mb-3" aria-live="polite">{added ? `Added to bag — size ${added}` : "Select a size"}</p>
+              <p className={cn("eyebrow mb-3", cardError && "normal-case tracking-normal text-danger")} aria-live="polite">{cardError || (added ? `Added to bag — size ${added}` : "Select a size")}</p>
               <div className="grid grid-cols-3 gap-2">
                 {p.sizes.map((s) => (
                   <button key={s.size} disabled={s.stock < 1} onClick={() => quickAdd(s)} className={cn("min-h-12 border text-[14px]", added === s.size ? "border-chocolate bg-chocolate text-offwhite" : "border-line", s.stock < 1 && "text-taupe/45 line-through")}>

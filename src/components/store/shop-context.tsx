@@ -1,142 +1,169 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { formatMoney } from "@/lib/commerce/currency";
+import type { CartLineView, CartView } from "@/server/commerce/cart";
 import type { Country, CurrencyCode, Market, PriceSet, ProductImage, ShippingMethod, TaxRule } from "@/types";
-import type { PaymentMethodDescriptor } from "@/lib/payments/types";
 
-export interface CartLine {
-  productId: string;
-  variantId: string;
-  slug: string;
-  name: string;
-  colour: string;
-  size: string;
-  image: ProductImage;
-  prices: PriceSet; // display snapshot; server recomputes at checkout
-  quantity: number;
-}
+export type { CartLineView, CartView };
 
 export interface WishItem {
   productId: string;
   slug: string;
   name: string;
   subtitle: string;
-  image: ProductImage;
+  image?: ProductImage;
   prices: PriceSet;
+  sizes?: { variantId: string; size: string; stock: number }[];
 }
+
+export interface PaymentMethodDescriptor { id: string; kind: "cod" | "online"; label: string; description: string }
 
 export interface CommerceConfig {
   markets: Market[];
   countries: Country[];
-  shipping: ShippingMethod[];
+  shipping: (ShippingMethod & { countries: string[]; cities: string[]; codAvailable: boolean })[];
   taxRules: TaxRule[];
   paymentMethods: Record<string, PaymentMethodDescriptor[]>; // by market id
   defaultMarketId: string;
 }
 
+export interface CustomerSummary { firstName: string; lastName: string; email: string; emailVerified: boolean }
+
+type Result = { ok: true } | { ok: false; error: string };
+
 interface ShopState {
   config: CommerceConfig;
   market: Market;
   currency: CurrencyCode;
-  setMarket: (id: string) => void;
+  setMarket: (id: string) => Promise<void>;
   format: (amount: number) => string;
   price: (set: PriceSet) => string;
-  cart: CartLine[];
+  cartView: CartView | null;
+  cart: CartLineView[];
   cartCount: number;
   subtotal: number;
-  addToCart: (line: Omit<CartLine, "quantity">, qty?: number) => void;
-  updateQuantity: (variantId: string, qty: number) => void;
-  removeFromCart: (variantId: string) => void;
-  clearCart: () => void;
+  addToCart: (variantId: string, qty?: number) => Promise<Result>;
+  updateQuantity: (variantId: string, qty: number) => Promise<Result>;
+  removeFromCart: (variantId: string) => Promise<Result>;
+  changeVariant: (fromVariantId: string, toVariantId: string) => Promise<Result>;
+  applyCoupon: (code: string | null) => Promise<Result>;
+  busy: boolean;
   wishlist: WishItem[];
   toggleWish: (item: WishItem) => void;
   isWished: (productId: string) => boolean;
   cartOpen: boolean;
   setCartOpen: (v: boolean) => void;
-  /** Changes on every successful add — drives the bag icon / confirmation feedback. */
   lastAdded: string | null;
   recentlyViewed: WishItem[];
   trackView: (item: WishItem) => void;
+  customer: CustomerSummary | null;
+  refresh: () => Promise<void>;
   hydrated: boolean;
 }
 
 const Ctx = createContext<ShopState | null>(null);
-const KEY = { cart: "ns.cart.v1", wish: "ns.wish.v1", market: "ns.market.v1", recent: "ns.recent.v1" };
+const RECENT_KEY = "ns.recent.v2";
 
-function read<T>(k: string, fallback: T): T {
+async function api<T>(path: string, body?: unknown): Promise<{ ok: true; data: T } | { ok: false; error: string }> {
   try {
-    const v = localStorage.getItem(k);
-    return v ? (JSON.parse(v) as T) : fallback;
+    const res = await fetch(path, body === undefined ? { cache: "no-store" } : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) return { ok: false, error: json?.error?.message ?? "Something went wrong. Please try again." };
+    return { ok: true, data: json as T };
   } catch {
-    return fallback;
-  }
-}
-function write(k: string, v: unknown) {
-  try {
-    localStorage.setItem(k, JSON.stringify(v));
-  } catch {
-    /* storage unavailable — keep in memory */
+    return { ok: false, error: "You appear to be offline. Please check your connection." };
   }
 }
 
+/**
+ * Shop state backed by the server: the cart and wishlist live in MySQL (guest cookie or customer
+ * account) and every amount shown is the server's price for the shopper's market.
+ */
 export function ShopProvider({ config, children }: { config: CommerceConfig; children: ReactNode }) {
-  const [marketId, setMarketId] = useState(config.defaultMarketId);
-  const [cart, setCart] = useState<CartLine[]>([]);
+  const [cartView, setCartView] = useState<CartView | null>(null);
   const [wishlist, setWishlist] = useState<WishItem[]>([]);
+  const [customer, setCustomer] = useState<CustomerSummary | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [lastAdded, setLastAdded] = useState<string | null>(null);
   const [recentlyViewed, setRecent] = useState<WishItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const wishVersion = useRef(0);
+
+  const refresh = async () => {
+    const [c, w, me] = await Promise.all([api<CartView>("/api/cart"), api<{ items: WishItem[] }>("/api/wishlist"), api<{ customer: CustomerSummary | null }>("/api/me")]);
+    if (c.ok) setCartView(c.data);
+    if (w.ok) setWishlist(w.data.items);
+    if (me.ok) setCustomer(me.data.customer);
+  };
 
   useEffect(() => {
-    // Hydrate persisted state after mount so server HTML stays deterministic.
-    /* eslint-disable react-hooks/set-state-in-effect */
-    setCart(read(KEY.cart, []));
-    setWishlist(read(KEY.wish, []));
-    setRecent(read(KEY.recent, []));
-    const saved = read<string | null>(KEY.market, null);
-    if (saved && config.markets.some((m) => m.id === saved)) setMarketId(saved);
-    setHydrated(true);
-    /* eslint-enable react-hooks/set-state-in-effect */
-  }, [config.markets]);
-
-  useEffect(() => { if (hydrated) write(KEY.cart, cart); }, [cart, hydrated]);
-  useEffect(() => { if (hydrated) write(KEY.wish, wishlist); }, [wishlist, hydrated]);
-
-  const market = config.markets.find((m) => m.id === marketId) ?? config.markets[0];
-  const currency = market.currency;
-
-  const setMarket = useCallback((id: string) => { setMarketId(id); write(KEY.market, id); }, []);
-  const format = useCallback((a: number) => formatMoney(a, currency), [currency]);
-  const price = useCallback((s: PriceSet) => formatMoney(s[currency], currency), [currency]);
-
-  const trackView = useCallback((item: WishItem) => {
-    setRecent((r) => { const next = [item, ...r.filter((x) => x.productId !== item.productId)].slice(0, 12); write(KEY.recent, next); return next; });
-  }, []);
-  const addToCart = useCallback((line: Omit<CartLine, "quantity">, qty = 1) => {
-    setLastAdded(`${line.variantId}:${Date.now()}`);
-    setCart((c) => {
-      const f = c.find((l) => l.variantId === line.variantId);
-      if (f) return c.map((l) => (l.variantId === line.variantId ? { ...l, quantity: Math.min(10, l.quantity + qty) } : l));
-      return [...c, { ...line, quantity: qty }];
+    let cancelled = false;
+    // State is set only after the network responses resolve (not synchronously).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refresh().finally(() => {
+      if (cancelled) return;
+      try { setRecent(JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]")); } catch { /* storage unavailable */ }
+      setHydrated(true);
     });
+    return () => { cancelled = true; };
   }, []);
-  const updateQuantity = useCallback((variantId: string, qty: number) => {
-    setCart((c) => (qty < 1 ? c.filter((l) => l.variantId !== variantId) : c.map((l) => (l.variantId === variantId ? { ...l, quantity: Math.min(10, qty) } : l))));
-  }, []);
-  const removeFromCart = useCallback((variantId: string) => setCart((c) => c.filter((l) => l.variantId !== variantId)), []);
-  const clearCart = useCallback(() => setCart([]), []);
-  const toggleWish = useCallback((item: WishItem) => {
-    setWishlist((w) => (w.some((x) => x.productId === item.productId) ? w.filter((x) => x.productId !== item.productId) : [item, ...w]));
-  }, []);
-  const isWished = useCallback((id: string) => wishlist.some((w) => w.productId === id), [wishlist]);
+
+  const market = config.markets.find((m) => m.id === (cartView?.marketId ?? config.defaultMarketId)) ?? config.markets[0];
+  const currency = market.currency as CurrencyCode;
+
+  const mutate = async (body: Record<string, unknown>): Promise<Result> => {
+    setBusy(true);
+    const r = await api<CartView>("/api/cart", body);
+    setBusy(false);
+    if (!r.ok) {
+      const fresh = await api<CartView>("/api/cart");
+      if (fresh.ok) setCartView(fresh.data);
+      return { ok: false, error: r.error };
+    }
+    setCartView(r.data);
+    return { ok: true };
+  };
 
   const value = useMemo<ShopState>(() => ({
-    config, market, currency, setMarket, format, price,
-    cart, cartCount: cart.reduce((a, l) => a + l.quantity, 0), subtotal: cart.reduce((a, l) => a + l.prices[currency] * l.quantity, 0),
-    addToCart, updateQuantity, removeFromCart, clearCart, wishlist, toggleWish, isWished, cartOpen, setCartOpen, lastAdded, recentlyViewed, trackView, hydrated,
-  }), [config, market, currency, setMarket, format, price, cart, addToCart, updateQuantity, removeFromCart, clearCart, wishlist, toggleWish, isWished, cartOpen, lastAdded, recentlyViewed, trackView, hydrated]);
+    config, market, currency,
+    setMarket: async (id) => { await mutate({ action: "market", marketId: id }); },
+    format: (a) => formatMoney(a, currency),
+    price: (s) => formatMoney(s[currency], currency),
+    cartView,
+    cart: cartView?.lines ?? [],
+    cartCount: cartView?.count ?? 0,
+    subtotal: cartView?.totals.subtotal ?? 0,
+    addToCart: async (variantId, qty = 1) => {
+      const r = await mutate({ action: "add", variantId, quantity: qty });
+      if (r.ok) setLastAdded(`${variantId}:${Date.now()}`);
+      return r;
+    },
+    updateQuantity: (variantId, qty) => mutate({ action: "set", variantId, quantity: Math.max(0, Math.min(10, qty)) }),
+    removeFromCart: (variantId) => mutate({ action: "remove", variantId }),
+    changeVariant: (fromVariantId, toVariantId) => mutate({ action: "change", fromVariantId, toVariantId }),
+    applyCoupon: (code) => mutate({ action: "coupon", code }),
+    busy,
+    wishlist,
+    toggleWish: (item) => {
+      const wished = !wishlist.some((w) => w.productId === item.productId);
+      const v = ++wishVersion.current;
+      setWishlist((w) => (wished ? [item, ...w] : w.filter((x) => x.productId !== item.productId)));
+      api<{ items: WishItem[] }>("/api/wishlist", { productId: item.productId, wished }).then((r) => { if (r.ok && v === wishVersion.current) setWishlist(r.data.items); });
+    },
+    isWished: (id) => wishlist.some((w) => w.productId === id),
+    cartOpen, setCartOpen, lastAdded, recentlyViewed,
+    trackView: (item) => {
+      setRecent((r) => {
+        const next = [item, ...r.filter((x) => x.productId !== item.productId)].slice(0, 12);
+        try { localStorage.setItem(RECENT_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+        return next;
+      });
+      if (customer) void api("/api/recently-viewed", { productId: item.productId });
+    },
+    customer, refresh, hydrated,
+  }), [config, market, currency, cartView, busy, wishlist, cartOpen, lastAdded, recentlyViewed, customer, hydrated]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

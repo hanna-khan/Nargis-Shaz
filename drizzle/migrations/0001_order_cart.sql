@@ -1,0 +1,1 @@
+ALTER TABLE `orders` ADD `cart_id` varchar(64);

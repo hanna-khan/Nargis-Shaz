@@ -9,14 +9,15 @@ export const metadata: Metadata = pageMetadata({
   path: "/new-arrivals",
 });
 
-export default async function NewArrivalsPage() {
-  const [products, collections] = await Promise.all([catalog.listProducts({ newOnly: true, sort: "newest" }), catalog.listCollections()]);
+export default async function NewArrivalsPage(props: PageProps<"/new-arrivals">) {
+  const collections = await catalog.listCollections();
   return (
     <CollectionView
       collection={{ name: "New in", eyebrow: "Just arrived", headline: "New *arrivals*", description: "The pieces we are wearing now: sage tailoring, satin for the evening and gold thread for the season of celebrations." }}
-      products={products}
+      scope={{ newOnly: true }}
+      searchParams={props.searchParams}
       path="/new-arrivals"
-      editorial={collections.find((c) => c.slug === "the-evening-edit")}
+      editorial={collections.find((c) => !c.occasionId && c.slug !== "autumn-winter-2026")}
     />
   );
 }

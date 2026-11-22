@@ -1,38 +1,60 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { EditorialImage } from "@/components/media/editorial-image";
 import { Emph } from "@/components/ui/typography";
-import { catalog } from "@/lib/repositories";
-import { baseColour } from "@/lib/services/catalog-filter";
+import { catalog, commerce, content } from "@/lib/repositories";
+import type { ListingFilter } from "@/server/catalog/query";
 import { toCard } from "./card-data";
-import { CatalogBrowser, StaticGrid, type CatalogItem, type FacetOptions } from "./catalog-browser";
-import type { Collection, Product } from "@/types";
+import { CatalogBrowser, StaticGrid } from "./catalog-browser";
+import type { Collection, CurrencyCode } from "@/types";
 
-const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"];
+export type CatalogScope = Omit<ListingFilter, "currency" | "page" | "pageSize" | "sort" | "categoryIds" | "colours" | "sizes" | "priceBands" | "inStockOnly">;
+type SP = Record<string, string | string[] | undefined>;
 
-/** Server component: prepares card data + facets from the repository; the client browser filters. */
-export async function Catalog({ products, editorial, hideCategory }: { products: Product[]; editorial?: Collection; hideCategory?: boolean }) {
-  const categories = await catalog.listCategories();
-  const items: CatalogItem[] = products.map((p) => ({
-    card: toCard(p),
-    categoryId: p.categoryId,
-    colours: [...new Set(p.colours.map((c) => baseColour(c.name)))],
-    sizesInStock: [...new Set(p.variants.filter((v) => v.stock > 0).map((v) => v.size))],
-    inStock: p.variants.some((v) => v.stock > 0),
-    createdAt: p.createdAt,
-    unitsSold: p.stats?.unitsSold30d ?? 0,
-  }));
-  const colourMap = new Map<string, string>();
-  products.forEach((p) => p.colours.forEach((c) => colourMap.set(baseColour(c.name), c.hex)));
-  const facets: FacetOptions = {
-    categories: categories.filter((c) => products.some((p) => p.categoryId === c.id)).map((c) => ({ id: c.id, name: c.name })),
-    colours: [...colourMap].map(([name, hex]) => ({ name, hex })),
-    sizes: SIZE_ORDER.filter((s) => items.some((it) => it.sizesInStock.includes(s))),
+const SORTS = ["featured", "recommended", "newest", "price-asc", "price-desc", "bestselling"] as const;
+const list = (v: string | string[] | undefined) => (typeof v === "string" ? v.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 12) : []);
+
+async function Results({ scope, searchParams, editorial, hideCategory, pageSize }: { scope: CatalogScope; searchParams: Promise<SP>; editorial?: Collection; hideCategory?: boolean; pageSize: number }) {
+  const [sp, cfg, settings, jar] = await Promise.all([searchParams, commerce.load(), content.settings(), cookies()]);
+  const marketId = jar.get("ns_market")?.value;
+  const market = cfg.markets.find((m) => m.id === marketId) ?? cfg.markets.find((m) => m.id === settings.defaultMarketId) ?? cfg.markets[0];
+  const currency = market.currency as CurrencyCode;
+  const sort = SORTS.includes(sp.sort as (typeof SORTS)[number]) ? (sp.sort as ListingFilter["sort"]) : "featured";
+  const page = Math.min(20, Math.max(1, Number(sp.page) || 1));
+  const filter: ListingFilter = {
+    ...scope, currency, sort, page, pageSize,
+    categoryIds: list(sp.category), colours: list(sp.colour), sizes: list(sp.size), priceBands: list(sp.price),
+    inStockOnly: sp.stock === "1", query: scope.query ?? (typeof sp.q === "string" ? sp.q : undefined),
   };
-  const tile = editorial ? <EditorialTile collection={editorial} /> : undefined;
+  const [result, categories] = await Promise.all([catalog.query(filter), catalog.listCategories()]);
+  const catNames = new Map(categories.map((c) => [c.id, c.name]));
   return (
-    <Suspense fallback={<StaticGrid items={items} />}>
-      <CatalogBrowser items={items} facets={facets} hideCategory={hideCategory} editorial={tile} />
+    <CatalogBrowser
+      items={result.products.map(toCard)}
+      total={result.total}
+      page={result.page}
+      pageSize={result.pageSize}
+      currency={currency}
+      facets={{
+        categories: result.facets.categories.filter((c) => catNames.has(c.id)).map((c) => ({ id: c.id, name: catNames.get(c.id)!, count: c.count })).sort((a, b) => a.name.localeCompare(b.name)),
+        colours: result.facets.colours, sizes: result.facets.sizes, prices: result.facets.prices, inStock: result.facets.inStock,
+      }}
+      hideCategory={hideCategory}
+      editorial={editorial ? <EditorialTile collection={editorial} /> : undefined}
+    />
+  );
+}
+
+/**
+ * Catalogue grid. Filtering, facet counts, sorting and pagination all run as MySQL queries on the
+ * server (URL search params → query); the client component only edits the URL.
+ */
+export async function Catalog({ scope, searchParams, editorial, hideCategory, pageSize = 24 }: { scope: CatalogScope; searchParams: Promise<SP>; editorial?: Collection; hideCategory?: boolean; pageSize?: number }) {
+  const fallback = await catalog.query({ ...scope, currency: "PKR", pageSize, sort: "featured" });
+  return (
+    <Suspense fallback={<StaticGrid items={fallback.products.map(toCard)} />}>
+      <Results scope={scope} searchParams={searchParams} editorial={editorial} hideCategory={hideCategory} pageSize={pageSize} />
     </Suspense>
   );
 }

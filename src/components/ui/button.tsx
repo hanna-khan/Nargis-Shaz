@@ -23,9 +23,9 @@ export function Button({ variant, size, full, className, ...rest }: ComponentPro
   return <button className={cn(buttonClass(variant, size, full), className)} {...rest} />;
 }
 
-export function ButtonLink({ href, variant, size, full, className, children }: { href: string; variant?: Variant; size?: Size; full?: boolean; className?: string; children: ReactNode }) {
+export function ButtonLink({ href, variant, size, full, className, children, ...rest }: { href: string; variant?: Variant; size?: Size; full?: boolean; className?: string; children: ReactNode } & Omit<ComponentProps<typeof Link>, "href" | "className" | "children">) {
   return (
-    <Link href={href} className={cn(buttonClass(variant, size, full), className)}>
+    <Link href={href} className={cn(buttonClass(variant, size, full), className)} {...rest}>
       {children}
     </Link>
   );

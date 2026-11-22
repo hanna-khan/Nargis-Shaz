@@ -43,13 +43,15 @@ export interface ProductVariant {
   stock: number;
 }
 
-export type ProductStatus = "active" | "draft" | "archived";
+export type ProductStatus = "active" | "draft" | "archived" | "scheduled";
 
 export interface Product {
   id: string;
   slug: string;
+  sku?: string;
   name: string;
   subtitle: string;
+  shortDescription?: string;
   description: string;
   categoryId: string;
   collectionIds: string[];
@@ -59,6 +61,7 @@ export interface Product {
   colours: ProductColour[];
   sizes: string[];
   variants: ProductVariant[];
+  sizeGuideId?: string | null;
   fabric: string;
   care: string[];
   details: string[];
@@ -66,10 +69,15 @@ export interface Product {
   tags: string[];
   /** Hand-picked pairings shown as "Complete the look". */
   completeTheLook?: string[];
+  /** Hand-picked "You may also like" products (falls back to same category). */
+  relatedIds?: string[];
   /** Sales analytics snapshot (Phase 2: aggregated from orders). Drives bestsellers. */
   stats?: { unitsSold30d: number };
   isNew: boolean;
+  isFeatured?: boolean;
+  isBestseller?: boolean;
   status: ProductStatus;
+  publishAt?: string | null;
   createdAt: string; // ISO
   seo?: { title?: string; description?: string };
 }
@@ -82,8 +90,11 @@ export interface Category {
   name: string;
   description: string;
   sortOrder: number;
+  parentId?: string | null;
   /** Editorial image for menus and category cards. */
   image?: ProductImage;
+  banner?: ProductImage;
+  seo?: { title?: string; description?: string };
 }
 
 export interface Collection {
@@ -96,12 +107,13 @@ export interface Collection {
   occasionId?: OccasionId;
   hero: ProductImage;
   featured: boolean;
+  seasonal?: boolean;
   sortOrder: number;
   status: "published" | "draft";
   seo?: { title?: string; description?: string };
 }
 
-export type SortKey = "featured" | "newest" | "price-asc" | "price-desc" | "bestselling";
+export type SortKey = "featured" | "newest" | "price-asc" | "price-desc" | "bestselling" | "recommended";
 
 export interface CatalogFilter {
   categoryIds?: string[];

@@ -14,8 +14,9 @@ import type { Product } from "@/types";
 const ease = [0.22, 0.8, 0.24, 1] as const;
 
 /** Gallery + purchase panel. Colour changes swap images and variants; size + stock are validated. */
-export function ProductPurchase({ product: p, categoryName, children }: { product: Product; categoryName: string; children: ReactNode }) {
-  const { addToCart, setCartOpen, config, market, trackView } = useShop();
+export function ProductPurchase({ product: p, categoryName, children, sizeGuide }: { product: Product; categoryName: string; children: ReactNode; sizeGuide: { rows: { size: string; uk?: string; eu?: string; us?: string; bust: string; waist: string; hip: string }[]; notes: string } | null }) {
+  const { addToCart, setCartOpen, config, market, trackView, busy } = useShop();
+  const [live, setLive] = useState<Record<string, number> | null>(null);
   const [colourIdx, setColourIdx] = useState(0);
   const [size, setSize] = useState<string | null>(p.sizes.length === 1 ? p.sizes[0] : null);
   const [qty, setQty] = useState(1);
@@ -24,12 +25,19 @@ export function ProductPurchase({ product: p, categoryName, children }: { produc
   const [showBar, setShowBar] = useState(false);
   const buyRef = useRef<HTMLDivElement>(null);
   const colour = p.colours[colourIdx];
-  const stockFor = (s: string) => p.variants.find((v) => v.colourId === colour.id && v.size === s)?.stock ?? 0;
-  const variant = size ? p.variants.find((v) => v.colourId === colour.id && v.size === size) : undefined;
-  const madeToOrder = p.categoryId === "cat-festive";
+  // Live stock (the page itself may be served from cache).
+  const variants = p.variants.map((v) => (live && v.id in live ? { ...v, stock: live[v.id] } : v));
+  const stockFor = (s: string) => variants.find((v) => v.colourId === colour.id && v.size === s)?.stock ?? 0;
+  const variant = size ? variants.find((v) => v.colourId === colour.id && v.size === size) : undefined;
+  const madeToOrder = p.tags.includes("made-to-order") || p.categoryId === "cat-festive";
   const fastest = config.shipping.filter((s) => s.marketId === market.id && s.active).sort((a, b) => a.estimatedDays[0] - b.estimatedDays[0])[0];
-  const anyStock = p.variants.some((v) => v.colourId === colour.id && v.stock > 0);
+  const anyStock = variants.some((v) => v.colourId === colour.id && v.stock > 0);
 
+  useEffect(() => {
+    let off = false;
+    fetch(`/api/products/${encodeURIComponent(p.slug)}/availability`, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (!off && d?.variants) setLive(d.variants); }).catch(() => {});
+    return () => { off = true; };
+  }, [p.slug]);
   useEffect(() => { trackView({ productId: p.id, slug: p.slug, name: p.name, subtitle: p.subtitle, image: p.colours[0].images[0], prices: p.prices }); }, [p.id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const el = buyRef.current;
@@ -39,11 +47,12 @@ export function ProductPurchase({ product: p, categoryName, children }: { produc
     return () => io.disconnect();
   }, []);
 
-  const add = () => {
+  const add = async () => {
     if (!variant) { setError("Please select your size."); document.getElementById("size-picker")?.scrollIntoView({ block: "center", behavior: "smooth" }); return; }
     if (variant.stock < 1) { setError("This size is sold out. Please choose another."); return; }
     if (qty > variant.stock) { setError(`Only ${variant.stock} available in size ${variant.size}.`); return; }
-    addToCart({ productId: p.id, variantId: variant.id, slug: p.slug, name: p.name, colour: colour.name, size: variant.size, image: colour.images[0], prices: variant.prices ?? p.prices }, qty);
+    const r = await addToCart(variant.id, qty);
+    if (!r.ok) { setError(r.error); return; }
     setAdded(true);
     setTimeout(() => { setAdded(false); setCartOpen(true); }, 650);
   };
@@ -82,7 +91,7 @@ export function ProductPurchase({ product: p, categoryName, children }: { produc
             <fieldset className="mt-7 scroll-mt-32" id="size-picker">
               <div className="mb-3 flex items-baseline justify-between">
                 <legend className="text-[10.5px] tracking-[0.22em] uppercase">Size{size ? <span className="ml-1 tracking-[0.12em] text-taupe">{size}</span> : null}</legend>
-                <SizeGuideButton fit={p.fit} />
+                {sizeGuide && <SizeGuideButton fit={p.fit} guide={sizeGuide} />}
               </div>
               <div className="grid grid-cols-6 gap-1.5 max-sm:grid-cols-3">
                 {p.sizes.map((s) => {
@@ -109,7 +118,7 @@ export function ProductPurchase({ product: p, categoryName, children }: { produc
 
           <div ref={buyRef} className="mt-3 flex gap-2.5">
             <QuantityStepper value={qty} onChange={(n) => { setQty(Math.max(1, Math.min(10, n))); setError(""); }} label={p.name} />
-            <button onClick={add} disabled={!anyStock} className="relative min-h-12 flex-1 overflow-hidden bg-chocolate text-[11px] tracking-[0.24em] text-offwhite uppercase transition-colors duration-500 hover:bg-espresso disabled:bg-stone disabled:text-taupe">
+            <button onClick={add} disabled={!anyStock || busy} className="relative min-h-12 flex-1 overflow-hidden bg-chocolate text-[11px] tracking-[0.24em] text-offwhite uppercase transition-colors duration-500 hover:bg-espresso disabled:bg-stone disabled:text-taupe">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.span key={added ? "added" : "add"} initial={{ y: 14, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -14, opacity: 0 }} transition={{ duration: 0.3, ease }} className="block">
                   {!anyStock ? "Sold out" : added ? "Added to bag ✓" : "Add to bag"}

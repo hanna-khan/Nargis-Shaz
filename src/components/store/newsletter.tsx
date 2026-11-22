@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useState, useTransition } from "react";
-import { subscribeNewsletter } from "@/lib/marketing/newsletter";
+import { subscribeNewsletter } from "@/app/(store)/actions";
 import { cn } from "@/lib/utils";
 import { Reveal } from "@/components/ui/reveal";
 import { Emph } from "@/components/ui/typography";
@@ -16,7 +16,7 @@ export function NewsletterForm({ tone = "dark", id }: { tone?: "dark" | "light";
     <AnimatePresence mode="wait" initial={false}>
       {state.status === "done" ? (
         <motion.p key="done" role="status" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="font-serif text-[20px] italic">
-          Thank you — you&apos;ll hear from us soon.
+          Thank you — please check your inbox to confirm your subscription.
         </motion.p>
       ) : (
         <motion.form
@@ -50,14 +50,14 @@ export function NewsletterForm({ tone = "dark", id }: { tone?: "dark" | "light";
 }
 
 /** Homepage / story newsletter section. */
-export function Newsletter() {
+export function Newsletter({ eyebrow = "The Nargis & Shaz letter", heading = "First to see each *new chapter*", body = "Early access to new collections, private appointments at our Lahore atelier and the occasional story from behind the scenes." }: { eyebrow?: string; heading?: string; body?: string }) {
   return (
     <section className="gutter bg-linen py-[clamp(72px,9vw,128px)]" aria-labelledby="newsletter-title">
       <Reveal className="mx-auto grid max-w-[1100px] items-end gap-10 md:grid-cols-[1.1fr_1fr]">
         <div>
-          <p className="eyebrow text-bronze">The Nargis &amp; Shaz letter</p>
-          <h2 id="newsletter-title" className="display mt-4 text-[clamp(34px,4vw,56px)]"><Emph text="First to see each *new chapter*" /></h2>
-          <p className="mt-4 max-w-[420px] text-taupe">Early access to new collections, private appointments at our Lahore atelier and the occasional story from behind the scenes.</p>
+          <p className="eyebrow text-bronze">{eyebrow}</p>
+          <h2 id="newsletter-title" className="display mt-4 text-[clamp(34px,4vw,56px)]"><Emph text={heading} /></h2>
+          <p className="mt-4 max-w-[420px] text-taupe">{body}</p>
         </div>
         <NewsletterForm id="newsletter-main" />
       </Reveal>

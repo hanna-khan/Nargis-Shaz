@@ -1,4 +1,7 @@
-# Architecture & Phase 2 handover
+# Architecture & Phase 2 handover (historical)
+
+> Superseded: this describes the Phase 1 design (local data, Supabase plan). The current system uses MySQL + Drizzle — see README.md and the other files in docs/.
+
 
 ## Principles
 - **Server Components by default.** Client components only for interaction: header/menus, filters, variant picker, bag, wishlist, checkout, admin views, motion, the silk canvas.

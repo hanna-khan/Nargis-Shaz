@@ -17,20 +17,19 @@ export async function generateMetadata({ params }: PageProps<"/collections/[slug
   return collectionMetadata(c, c.occasionId ? `/${c.occasionId}` : `/collections/${c.slug}`);
 }
 
-async function CollectionContent({ params }: { params: PageProps<"/collections/[slug]">["params"] }) {
+async function CollectionContent({ params, searchParams }: PageProps<"/collections/[slug]">) {
   const { slug } = await params;
   const c = await catalog.getCollectionBySlug(slug);
   if (!c || c.status !== "published") notFound();
   // Occasion collections live at their own top-level URL — one canonical page each.
   if (c.occasionId) permanentRedirect(`/${c.occasionId}`);
-  const products = await catalog.listProducts({ collectionId: c.id });
-  return <CollectionView collection={c} products={products} path={`/collections/${c.slug}`} />;
+  return <CollectionView collection={c} scope={{ collectionId: c.id }} searchParams={searchParams} path={`/collections/${c.slug}`} />;
 }
 
 export default function CollectionPage(props: PageProps<"/collections/[slug]">) {
   return (
     <Suspense fallback={<div className="min-h-[80vh]" />}>
-      <CollectionContent params={props.params} />
+      <CollectionContent {...props} />
     </Suspense>
   );
 }

@@ -65,7 +65,7 @@ export default function OurStoryPage() {
       <section className="bg-chocolate py-[clamp(80px,10vw,150px)] text-offwhite" aria-labelledby="atelier-title">
         <div className="gutter grid items-center gap-[clamp(32px,6vw,100px)] md:grid-cols-[1fr_1.1fr]">
           <Reveal>
-            <Monogram className="h-14 w-14 text-bronze-light" />
+            <Monogram className="h-16 text-bronze-light" />
             <p className="eyebrow mt-8 text-bronze-light">The atelier</p>
             <h2 id="atelier-title" className="display mt-4 text-[clamp(32px,3.6vw,54px)]"><Emph text="Gold thread, *patience* and pride" /></h2>
             <p className="mt-6 max-w-[460px] text-offwhite/75">Our festive and bridal pieces are made to measure in Lahore. A single lehenga can take a team of karigars more than three hundred hours — every zari stitch placed by hand.</p>

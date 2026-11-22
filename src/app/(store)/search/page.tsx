@@ -1,22 +1,24 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { SearchResults } from "@/components/store/search-results";
-import { toCard } from "@/components/store/product/card-data";
-import { catalog } from "@/lib/repositories";
+import { Catalog } from "@/components/store/product/catalog";
+import { SearchBox } from "@/components/store/search-results";
 import { pageMetadata } from "@/lib/seo";
 
 // Result pages help shoppers but are kept out of search engines.
 export const metadata: Metadata = pageMetadata({ title: "Search", description: "Search the Nargis & Shaz collection.", path: "/search", noIndex: true });
 
-export default async function SearchPage() {
-  const [products, categories] = await Promise.all([catalog.listProducts(), catalog.listCategories()]);
-  const items = products.map((p) => ({
-    card: toCard(p),
-    text: [p.name, p.subtitle, p.description, p.fabric, ...p.colours.map((c) => c.name), ...p.occasionIds, categories.find((c) => c.id === p.categoryId)?.name].join(" ").toLowerCase(),
-  }));
+async function Results({ searchParams }: { searchParams: PageProps<"/search">["searchParams"] }) {
+  const sp = await searchParams;
+  const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 80) : "";
+  if (!q) return <div className="pb-24" />;
+  return <Catalog scope={{ query: q }} searchParams={Promise.resolve(sp)} />;
+}
+
+export default function SearchPage(props: PageProps<"/search">) {
   return (
-    <Suspense fallback={<div className="min-h-[70vh]" />}>
-      <SearchResults items={items} />
-    </Suspense>
+    <>
+      <Suspense fallback={<div className="h-48" />}><SearchBox /></Suspense>
+      <Suspense fallback={<div className="min-h-[50vh]" />}><Results searchParams={props.searchParams} /></Suspense>
+    </>
   );
 }

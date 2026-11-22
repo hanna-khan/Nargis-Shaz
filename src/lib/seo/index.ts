@@ -41,17 +41,19 @@ export function collectionMetadata(c: Collection, path: string): Metadata {
 
 /* ---------------- JSON-LD ---------------- */
 
-export function organizationJsonLd() {
+/** Organization data comes from Studio → Settings (no invented address or social profiles). */
+export function organizationJsonLd(settings?: { storeName: string; supportEmail: string; supportPhone: string; address: string; social: Record<string, string> }) {
+  const sameAs = settings ? Object.values(settings.social).filter((u) => u.startsWith("https://")) : [];
   return {
     "@context": "https://schema.org",
     "@type": "Organization",
-    name: site.name,
+    name: settings?.storeName ?? site.name,
     url: site.url,
     logo: absoluteUrl("/icon.svg"),
-    email: site.email,
-    telephone: site.phone,
-    sameAs: [site.instagram],
-    address: { "@type": "PostalAddress", streetAddress: site.address.street, addressLocality: site.address.city, addressRegion: site.address.region, postalCode: site.address.postalCode, addressCountry: site.address.country },
+    ...(settings?.supportEmail ? { email: settings.supportEmail } : {}),
+    ...(settings?.supportPhone ? { telephone: settings.supportPhone } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
+    ...(settings?.address ? { address: { "@type": "PostalAddress", streetAddress: settings.address, addressCountry: "PK" } } : {}),
   };
 }
 

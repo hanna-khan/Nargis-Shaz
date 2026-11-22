@@ -32,6 +32,11 @@ export interface NavItem {
 /** Navigation + search index assembled on the server from the repositories. */
 export interface NavData {
   announcement: string;
+  announcementHref: string | null;
+  footer: { title: string; links: { name: string; href: string }[] }[];
+  about: string;
+  copyright: string;
+  social: { name: string; url: string }[];
   primary: NavItem[];
   categories: NavLink[];
   occasions: NavLink[];

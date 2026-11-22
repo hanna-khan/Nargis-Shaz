@@ -3,10 +3,10 @@ import { EditorialImage } from "@/components/media/editorial-image";
 import { Breadcrumbs, JsonLd } from "@/components/ui/misc";
 import { Reveal } from "@/components/ui/reveal";
 import { Emph } from "@/components/ui/typography";
-import { Catalog } from "./product/catalog";
+import { Catalog, type CatalogScope } from "./product/catalog";
 import { breadcrumbJsonLd } from "@/lib/seo";
 import { cn, stripEmphasis } from "@/lib/utils";
-import type { Collection, Product, ProductImage } from "@/types";
+import type { Collection, ProductImage } from "@/types";
 
 interface Header { name: string; eyebrow: string; headline: string; description: string; hero?: ProductImage }
 
@@ -14,8 +14,8 @@ interface Header { name: string; eyebrow: string; headline: string; description:
  * Shared listing template: shop, categories, occasions, collections, new arrivals.
  * Breadcrumb → title & editorial description → optional banner → filters → grid.
  */
-export function CollectionView({ collection, products, path, editorial, hideCategory, crumbs, siblings }: {
-  collection: Header; products: Product[]; path: string; editorial?: Collection; hideCategory?: boolean;
+export function CollectionView({ collection, scope, searchParams, path, editorial, hideCategory, crumbs, siblings }: {
+  collection: Header; scope: CatalogScope; searchParams: Promise<Record<string, string | string[] | undefined>>; path: string; editorial?: Collection; hideCategory?: boolean;
   crumbs?: { name: string; href?: string }[]; siblings?: { name: string; href: string; active?: boolean }[];
 }) {
   const trail = crumbs ?? [{ name: "Home", href: "/" }, { name: stripEmphasis(collection.name) }];
@@ -50,7 +50,7 @@ export function CollectionView({ collection, products, path, editorial, hideCate
           ))}
         </nav>
       )}
-      <Catalog products={products} editorial={editorial} hideCategory={hideCategory} />
+      <Catalog scope={scope} searchParams={searchParams} editorial={editorial} hideCategory={hideCategory} />
       <JsonLd data={breadcrumbJsonLd(trail.map((t, i) => ({ name: t.name, path: t.href ?? (i === trail.length - 1 ? path : "/") })))} />
     </>
   );

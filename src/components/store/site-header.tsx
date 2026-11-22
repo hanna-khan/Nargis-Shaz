@@ -17,14 +17,18 @@ import type { NavData } from "./navigation-types";
 /** Pages whose first section is a full-bleed photograph: header starts transparent over it. */
 const OVER_HERO = ["/", "/our-story"];
 
+/** Reads the pathname (dynamic) — rendered inside <Suspense>, with SiteHeaderView as the fallback. */
 export function SiteHeader({ nav }: { nav: NavData }) {
-  const pathname = usePathname();
+  return <SiteHeaderView nav={nav} pathname={usePathname()} />;
+}
+
+export function SiteHeaderView({ nav, pathname }: { nav: NavData; pathname: string }) {
   const overHero = OVER_HERO.includes(pathname);
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState(false);
-  const { cartCount, setCartOpen, wishlist, hydrated, lastAdded } = useShop();
+  const { cartCount, setCartOpen, wishlist, hydrated, lastAdded, customer } = useShop();
   const headerRef = useRef<HTMLElement>(null);
   const openTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -66,9 +70,11 @@ export function SiteHeader({ nav }: { nav: NavData }) {
 
   return (
     <>
-      <div className="relative z-[60] flex h-8 items-center justify-center bg-chocolate px-10 text-center text-[10px] tracking-[0.22em] text-offwhite/90 uppercase">
-        <p className="truncate">{nav.announcement}</p>
-      </div>
+      {nav.announcement && (
+        <div className="relative z-[60] flex h-8 items-center justify-center bg-chocolate px-10 text-center text-[10px] tracking-[0.22em] text-offwhite/90 uppercase">
+          {nav.announcementHref ? <Link href={nav.announcementHref} className="truncate hover:text-offwhite">{nav.announcement}</Link> : <p className="truncate">{nav.announcement}</p>}
+        </div>
+      )}
       <header
         ref={headerRef}
         onMouseLeave={intendClose}
@@ -124,7 +130,7 @@ export function SiteHeader({ nav }: { nav: NavData }) {
           <div className="flex items-center justify-end gap-[clamp(12px,1.4vw,22px)]">
             <div className="hidden xl:block"><MarketSwitcher compact tone={transparent ? "light" : "dark"} /></div>
             <button onClick={() => setSearch(true)} aria-label="Search" className="hidden p-1 xl:block"><SearchIcon /></button>
-            <Link href="/account" aria-label="Account" className="hidden p-1 xl:block"><UserIcon /></Link>
+            <Link href="/account" aria-label={customer ? `Your account (${customer.firstName})` : "Sign in or create an account"} className="hidden p-1 xl:block"><UserIcon /></Link>
             <Link href="/wishlist" aria-label={`Wishlist${hydrated && wishlist.length ? `, ${wishlist.length} saved` : ""}`} className="relative p-1">
               <HeartIcon />
               {hydrated && wishlist.length > 0 && <Count n={wishlist.length} />}

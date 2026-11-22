@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Archived / generated folders (not application code):
+    "_prototype-static/**",
+    "_to_delete/**",
+    "test-results/**",
+    "playwright-report/**",
   ]),
 ]);
 

@@ -17,7 +17,7 @@ export function EditorialImage({
   if (!image?.src) {
     return (
       <div role="img" aria-label={image?.alt ?? "Photograph coming soon"} className={cn(pos, "grid place-items-center overflow-hidden bg-linen text-bronze/70", className)}>
-        <Monogram className="h-12 w-12" title="" />
+        <Monogram className="h-12" title="" />
       </div>
     );
   }
